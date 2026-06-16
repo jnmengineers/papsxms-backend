@@ -1,5 +1,6 @@
 package jnm.engineer.demo.models;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -28,17 +29,16 @@ public class Teacher {
     @Column(nullable = false)
     private String lastName;
 
-    // ✅ Email is now OPTIONAL — can be filled in later
     @Email(message = "Email must be valid")
     @Column(nullable = true, length = 100)
     private String email;
 
-    // ✅ Phone is now the UNIQUE identifier
     @NotBlank(message = "Phone number is required")
     @Column(nullable = false, unique = true)
     private String phone;
 
-    @ElementCollection
+    // ✅ Changed to EAGER — fixes lazy collection serialization error
+    @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "teacher_subjects", joinColumns = @JoinColumn(name = "teacher_id"))
     @Column(name = "subject")
     private List<String> subjects = new ArrayList<>();
