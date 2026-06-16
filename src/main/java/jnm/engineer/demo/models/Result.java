@@ -20,20 +20,20 @@ public class Result {
     private Long resultId;
 
     @NotNull(message = "Student is required")
-    @JsonIgnoreProperties({"schoolClass", "hibernateLazyInitializer", "handler"})
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JsonIgnoreProperties({"schoolClass", "studentList", "hibernateLazyInitializer", "handler", "subjects"})
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "student_id", nullable = false)
     private Student student;
 
     @NotNull(message = "Subject is required")
-    @JsonIgnoreProperties({"teacher", "hibernateLazyInitializer", "handler"})
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JsonIgnoreProperties({"teacher", "hibernateLazyInitializer", "handler", "subjects"})
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "subject_id", nullable = false)
     private Subject subject;
 
     @NotNull(message = "Exam is required")
     @JsonIgnoreProperties({"academicYearRef", "hibernateLazyInitializer", "handler"})
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "exam_id", nullable = false)
     private Exam exam;
 

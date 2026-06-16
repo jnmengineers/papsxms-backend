@@ -44,8 +44,9 @@ public class Exam {
     @Column(nullable = false, length = 20)
     private String classLevel;
 
+    // ✅ Changed to EAGER — fixes lazy proxy serialization error
     @JsonIgnoreProperties({"exams", "hibernateLazyInitializer", "handler"})
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "academic_year_id")
     private AcademicYear academicYearRef;
 }

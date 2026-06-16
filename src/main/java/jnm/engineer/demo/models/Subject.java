@@ -29,8 +29,9 @@ public class Subject {
     @Column(nullable = false)
     private String gradeLevel;
 
+    // ✅ Changed to EAGER — fixes lazy proxy serialization error
     @JsonIgnoreProperties({"subjects", "hibernateLazyInitializer", "handler"})
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "teacher_id")
     private Teacher teacher;
 }
