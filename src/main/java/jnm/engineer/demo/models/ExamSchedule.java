@@ -19,25 +19,25 @@ public class ExamSchedule {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long scheduleId;
 
-    @JsonIgnoreProperties({"teacher", "gradeLevel", "subjectCode", "hibernateLazyInitializer", "handler"})
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    // ✅ Changed to EAGER — fixes lazy proxy serialization error
+    @JsonIgnoreProperties({"teacher", "gradeLevel", "subjectCode", "hibernateLazyInitializer", "handler", "subjects"})
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "subject_id", nullable = false)
     private Subject subject;
 
-    @JsonIgnoreProperties({"classTeacher", "students", "stream", "gradeLevel", "hibernateLazyInitializer", "handler"})
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JsonIgnoreProperties({"classTeacher", "studentList", "stream", "gradeLevel", "hibernateLazyInitializer", "handler", "subjects"})
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "class_id", nullable = false)
     private SchoolClass schoolClass;
 
     @JsonIgnoreProperties({"academicYearRef", "startDate", "endDate", "hibernateLazyInitializer", "handler"})
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "exam_id", nullable = false)
     private Exam exam;
 
     @Column(nullable = false)
     private LocalDate examDate;
 
-    // ✅ Fixed — changed from LocalDate to LocalTime
     @Column(nullable = false)
     private LocalTime startTime;
 
