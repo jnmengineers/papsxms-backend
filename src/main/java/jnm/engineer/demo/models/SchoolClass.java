@@ -28,20 +28,18 @@ public class SchoolClass {
     @Column
     private String stream;
 
-    // e.g. PG, PP1, PP2, G1, G2, G3, G4, G5, G6, G7, G8, G9
     @Column(nullable = false)
     private String gradeLevel;
 
-    // PRE_SCHOOL, LOWER_PRIMARY, UPPER_PRIMARY, JUNIOR_SCHOOL
     @Column(nullable = false)
     private String section;
 
-    // Subject mean target based on section
     @Column(nullable = false)
     private Double meanTarget;
 
-    @JsonIgnoreProperties({"classTeacher", "studentList", "hibernateLazyInitializer", "handler"})
-    @ManyToOne(fetch = FetchType.LAZY)
+    // ✅ Changed to EAGER so teacher loads with the class — fixes lazy proxy error
+    @JsonIgnoreProperties({"classTeacher", "studentList", "hibernateLazyInitializer", "handler", "subjects"})
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "class_teacher_id")
     private Teacher classTeacher;
 

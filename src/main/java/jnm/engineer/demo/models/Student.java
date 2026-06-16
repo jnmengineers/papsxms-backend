@@ -15,7 +15,6 @@ import java.time.LocalDate;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-
 public class Student {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -42,13 +41,16 @@ public class Student {
     @Column(nullable = false, length = 20)
     @NotBlank(message = "Admission number is required")
     private String admissionNumber;
+
     @Column(nullable = false, length = 20)
     private String className;
+
     @Column(length = 10)
     private String stream;
 
-    @JsonIgnoreProperties({"students", "classTeacher", "hibernateLazyInitializer", "handler"})
-    @ManyToOne(fetch = FetchType.LAZY)
+    // ✅ Changed to EAGER — fixes lazy proxy serialization error
+    @JsonIgnoreProperties({"studentList", "classTeacher", "hibernateLazyInitializer", "handler", "subjects"})
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "classId")
     private SchoolClass schoolClass;
 }
