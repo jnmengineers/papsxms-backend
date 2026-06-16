@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 
 @Entity
 @Table(name = "examSchedules")
@@ -36,11 +37,12 @@ public class ExamSchedule {
     @Column(nullable = false)
     private LocalDate examDate;
 
+    // ✅ Fixed — changed from LocalDate to LocalTime
     @Column(nullable = false)
-    private LocalDate startTime;
+    private LocalTime startTime;
 
     @Column(nullable = false)
-    private LocalDate endTime;
+    private LocalTime endTime;
 
     @Column(length = 100)
     private String venue;

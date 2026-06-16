@@ -1,8 +1,8 @@
 package jnm.engineer.demo.controllers;
 
-import jakarta.validation.Valid;
 import jnm.engineer.demo.models.User;
 import jnm.engineer.demo.services.UserService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -27,12 +27,12 @@ public class UserController {
         return ResponseEntity.ok(userService.getById(id));
     }
 
-    // Get /api/users/by-role?role=Teacher
+    // ✅ Fixed — changed @PathVariable to @RequestParam
     @GetMapping("/by-role")
-    public ResponseEntity<List<User>> getByRole(@PathVariable User.Role role){
+    public ResponseEntity<List<User>> getByRole(@RequestParam User.Role role){
         return ResponseEntity.ok(userService.getByRole(role));
     }
-    // POST /api/users
+
     @PostMapping()
     public ResponseEntity<User> create(@Valid @RequestBody User user){
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -48,15 +48,21 @@ public class UserController {
     @PatchMapping("/{id}/change-password")
     public ResponseEntity<String> changePassword(@PathVariable Long id,
                                                  @RequestBody Map<String,String> body){
-        String newPasswordHarsh =  body.get("passwordHarsh");
-        userService.changePassword(id, newPasswordHarsh);
-        return ResponseEntity.ok("password update successfully.");
+        String newPasswordHash = body.get("passwordHash");
+        userService.changePassword(id, newPasswordHash);
+        return ResponseEntity.ok("Password updated successfully.");
     }
 
-    //DELETE /api/users/1
+    @PatchMapping("/{userId}/assign-class/{classId}")
+    public ResponseEntity<String> assignClass(@PathVariable Long userId,
+                                              @PathVariable Long classId){
+        userService.assignClassToUser(userId, classId);
+        return ResponseEntity.ok("Class assigned successfully");
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<String> delete(@PathVariable Long id){
         userService.delete(id);
-        return ResponseEntity.ok("user deleted successfully");
+        return ResponseEntity.ok("User deleted successfully");
     }
 }

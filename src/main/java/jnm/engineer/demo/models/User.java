@@ -1,5 +1,6 @@
 package jnm.engineer.demo.models;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -36,4 +37,9 @@ public class User {
 
     @Column
     private Long LinkedId;
+
+    @JsonIgnoreProperties({"studentList", "classTeacher", "hibernateLazyInitializer", "handler"})
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "linked_class_id")
+    private SchoolClass linkedClass;
 }

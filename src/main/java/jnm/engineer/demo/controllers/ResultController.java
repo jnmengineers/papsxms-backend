@@ -1,10 +1,8 @@
 package jnm.engineer.demo.controllers;
 
-import jakarta.validation.Valid;
 import jnm.engineer.demo.models.Result;
-import jnm.engineer.demo.models.SchoolClass;
 import jnm.engineer.demo.services.ResultService;
-import jnm.engineer.demo.services.SchoolClassService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -28,14 +26,15 @@ public class ResultController {
         return ResponseEntity.ok(resultService.getById(id));
     }
 
-    //searching the teacher by name
+    // ✅ Fixed — changed @RequestParam to @PathVariable
     @GetMapping("/by-student/{studentId}")
-    public ResponseEntity<List<Result>> getBYClassName(@RequestParam Long studentId){
+    public ResponseEntity<List<Result>> getByStudent(@PathVariable Long studentId){
         return ResponseEntity.ok(resultService.getByStudent(studentId));
     }
 
+    // ✅ Fixed — changed @RequestParam to @PathVariable
     @GetMapping("/by-exam/{examId}")
-    public ResponseEntity<List<Result>> getByExam(@RequestParam Long examId){
+    public ResponseEntity<List<Result>> getByExam(@PathVariable Long examId){
         return ResponseEntity.ok(resultService.getByExam(examId));
     }
 
@@ -45,22 +44,18 @@ public class ResultController {
         return ResponseEntity.ok(resultService.getByStudentAndExam(studentId, examId));
     }
 
-    // POST /api/users
     @PostMapping()
     public ResponseEntity<Result> create(@Valid @RequestBody Result result){
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(resultService.create(result));
     }
 
-
-
     @PutMapping("/{id}")
     public ResponseEntity<Result> update(@PathVariable Long id,
-                                       @Valid @RequestBody Result result){
+                                        @Valid @RequestBody Result result){
         return ResponseEntity.ok(resultService.update(id, result));
     }
 
-    //DELETE /api/users/1
     @DeleteMapping("/{id}")
     public ResponseEntity<String> delete(@PathVariable Long id){
         resultService.delete(id);

@@ -8,10 +8,7 @@ import java.util.Optional;
 
 public interface ReportCardRepository extends JpaRepository<ReportCard, Long> {
     List<ReportCard> findByStudentStudentId(Long studentId);
-
     List<ReportCard> findByExamExamId(Long examId);
-
     Optional<ReportCard> findByStudentStudentIdAndExamExamId(Long studentId, Long examId);
-
     boolean existsByStudentStudentIdAndExamExamId(Long studentId, Long examId);
 }

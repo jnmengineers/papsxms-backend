@@ -34,36 +34,43 @@ public class SchoolClassController {
         return ResponseEntity.ok(schoolClassService.getBySchoolClassName(className));
     }
 
+    // ✅ Fixed — changed @RequestParam to @PathVariable
     @GetMapping("/by-teacher/{teacherId}")
-    public ResponseEntity<List<SchoolClass>> getByTeacher(@RequestParam Long teacherId){
+    public ResponseEntity<List<SchoolClass>> getByTeacher(@PathVariable Long teacherId){
         return ResponseEntity.ok(schoolClassService.getByClassTeacher(teacherId));
     }
 
 
     // POST /api/users
-    @PostMapping()
-    public ResponseEntity<SchoolClass> create(@RequestBody SchoolClass schoolClass){
+    @PostMapping
+    public ResponseEntity<SchoolClass> create(@RequestBody SchoolClass schoolClass) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(schoolClassService.create(schoolClass));
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<SchoolClass> update(@PathVariable Long id,
-                                       @RequestBody SchoolClass schoolClass){
+                                              @RequestBody SchoolClass schoolClass){
         return ResponseEntity.ok(schoolClassService.update(id, schoolClass));
     }
 
-    @PatchMapping ("/{classId}/assign-teacher/{teacherId}")
+    @PatchMapping("/{classId}/assign-teacher/{teacherId}")
     public ResponseEntity<SchoolClass> assignTeacher(@PathVariable Long classId,
                                                      @PathVariable Long teacherId){
         return ResponseEntity.ok(schoolClassService.assignClassTeacher(classId, teacherId));
     }
 
+    // ✅ New — unassign the class teacher (sets classTeacher to null)
+    @PatchMapping("/{classId}/unassign-teacher")
+    public ResponseEntity<SchoolClass> unassignTeacher(@PathVariable Long classId){
+        return ResponseEntity.ok(schoolClassService.unassignClassTeacher(classId));
+    }
+
 
     //DELETE /api/users/1
     @DeleteMapping("/{id}")
-    public ResponseEntity<String> delete(@PathVariable Long id){
+    public ResponseEntity<String> delete(@PathVariable Long id) {
         schoolClassService.delete(id);
-        return ResponseEntity.ok("user deleted successfully");
+        return ResponseEntity.ok("Class deleted successfully");
     }
 }

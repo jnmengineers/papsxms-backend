@@ -1,6 +1,8 @@
 package jnm.engineer.demo.services;
 
+import jnm.engineer.demo.models.SchoolClass;
 import jnm.engineer.demo.models.User;
+import jnm.engineer.demo.repositories.SchoolClassRepository;
 import jnm.engineer.demo.repositories.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,6 +15,15 @@ import java.util.List;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final SchoolClassRepository schoolClassRepository;
+
+    public void assignClassToUser(Long userId, Long classId){
+        User user = getById(userId);
+        SchoolClass schoolClass = schoolClassRepository.findById(classId)
+                .orElseThrow(() -> new RuntimeException("Class not found"));
+        user.setLinkedClass(schoolClass);
+        userRepository.save(user);
+    }
 
     public List<User> getAllUsers() {
         return userRepository.findAll();

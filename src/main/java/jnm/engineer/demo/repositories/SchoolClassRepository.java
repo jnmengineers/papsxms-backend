@@ -8,9 +8,6 @@ import java.util.List;
 
 @Repository
 public interface SchoolClassRepository extends JpaRepository<SchoolClass, Long> {
-    List<SchoolClass> findByClassName(String className);
-
-    List<SchoolClass> findByClassTeacher(Long teacherId);
-
-    List<SchoolClass> findByClassTeacherTeacherId(Long id);
+    List<SchoolClass> findByClassNameContainingIgnoreCase(String className);
+    List<SchoolClass> findByClassTeacherTeacherId(Long teacherId);
 }

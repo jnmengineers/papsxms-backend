@@ -28,13 +28,14 @@ public class Teacher {
     @Column(nullable = false)
     private String lastName;
 
-    @NotBlank(message = "Email is required")
+    // ✅ Email is now OPTIONAL — can be filled in later
     @Email(message = "Email must be valid")
-    @Column(nullable = false, unique = true, length = 100)
+    @Column(nullable = true, length = 100)
     private String email;
 
+    // ✅ Phone is now the UNIQUE identifier
     @NotBlank(message = "Phone number is required")
-    @Column(nullable = false)
+    @Column(nullable = false, unique = true)
     private String phone;
 
     @ElementCollection
