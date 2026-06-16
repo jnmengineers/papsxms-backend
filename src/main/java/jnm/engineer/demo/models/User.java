@@ -38,6 +38,11 @@ public class User {
     @Column
     private Long LinkedId;
 
+    // ✅ New — forces the user to change their password on next login
+    // Defaults to false so existing accounts are unaffected.
+    @Column(nullable = false)
+    private boolean mustChangePassword = false;
+
     @JsonIgnoreProperties({"studentList", "classTeacher", "hibernateLazyInitializer", "handler"})
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "linked_class_id")

@@ -24,6 +24,7 @@ public class SchoolClassService {
     private final UserRepository userRepository;
     private final ClassSubjectRepository classSubjectRepository;
     private final ExamScheduleRepository examScheduleRepository;
+    private final UserService userService;
 
     public List<SchoolClass> getAllSchoolClasses() {
         return schoolClassRepository.findAll();
@@ -88,26 +89,12 @@ public class SchoolClassService {
 
     public SchoolClass update(Long id, SchoolClass updated) {
         SchoolClass existing = getById(id);
-
-        String oldClassName = existing.getClassName();
-
         existing.setClassName(updated.getClassName());
         existing.setStream(updated.getStream());
         existing.setGradeLevel(updated.getGradeLevel());
         existing.setSection(updated.getSection());
         existing.setMeanTarget(updated.getMeanTarget());
-
-        SchoolClass saved = schoolClassRepository.save(existing);
-
-        // ✅ Cascade update — sync denormalized className/stream on all students in this class
-        List<Student> students = studentRepository.findBySchoolClassClassId(id);
-        students.forEach(student -> {
-            student.setClassName(saved.getClassName());
-            student.setStream(saved.getStream());
-            studentRepository.save(student);
-        });
-
-        return saved;
+        return schoolClassRepository.save(existing);
     }
 
     public SchoolClass assignClassTeacher(Long classId, Long teacherId) {
@@ -115,7 +102,13 @@ public class SchoolClassService {
         jnm.engineer.demo.models.Teacher teacher = teacherRepository.findById(teacherId)
                 .orElseThrow(() -> new RuntimeException("Teacher not found"));
         schoolClass.setClassTeacher(teacher);
-        return schoolClassRepository.save(schoolClass);
+        SchoolClass saved = schoolClassRepository.save(schoolClass);
+
+        // ✅ Auto-create or update the teacher's login account, linked to this class.
+        // Username = teacher's phone number, default password = phone number (must change on first login).
+        userService.createOrUpdateTeacherUser(teacher, saved);
+
+        return saved;
     }
 
     // ✅ New — unassign the class teacher (sets classTeacher to null)

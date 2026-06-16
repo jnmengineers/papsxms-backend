@@ -53,7 +53,13 @@ public class AuthController {
 
         String token = jwtUtil.generateToken(username, role);
 
-        return ResponseEntity.ok(new LoginResponse(token, role, username, linkedClassId, linkedClassName));
+        // ✅ Whether this user must change their password before continuing
+        boolean mustChangePassword = user != null && user.isMustChangePassword();
+
+        LoginResponse response = new LoginResponse(token, role, username, linkedClassId, linkedClassName);
+        response.setMustChangePassword(mustChangePassword);
+
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/register")
@@ -71,6 +77,7 @@ public class AuthController {
         userRepository.save(user);
         return ResponseEntity.ok("User registered successfully");
     }
+
     @PostMapping("/change-password")
     public ResponseEntity<String> changePassword(@RequestBody Map<String, String> request) {
         String username = request.get("username");
@@ -85,6 +92,7 @@ public class AuthController {
         }
 
         user.setPasswordHash(passwordEncoder.encode(newPassword));
+        user.setMustChangePassword(false); // ✅ clear the forced-change flag
         userRepository.save(user);
         return ResponseEntity.ok("Password changed successfully");
     }
