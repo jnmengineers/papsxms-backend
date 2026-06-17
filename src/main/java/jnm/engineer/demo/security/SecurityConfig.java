@@ -30,7 +30,8 @@ public class SecurityConfig {
 
     // ✅ Read allowed origins from environment variable
     // Defaults to localhost for development
-    @Value("${CORS_ALLOWED_ORIGINS:http://localhost:3000}")
+    // ✅ Hardcoded Vercel URL as default — env var CORS_ALLOWED_ORIGINS can override
+    @Value("${CORS_ALLOWED_ORIGINS:https://papsxms-frontend.vercel.app,http://localhost:3000}")
     private String allowedOrigins;
 
     @Bean
