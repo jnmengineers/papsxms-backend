@@ -87,6 +87,7 @@ public class SchoolClassService {
         return 80.0;
     }
 
+    @Transactional
     public SchoolClass update(Long id, SchoolClass updated) {
         SchoolClass existing = getById(id);
         existing.setClassName(updated.getClassName());
@@ -94,7 +95,18 @@ public class SchoolClassService {
         existing.setGradeLevel(updated.getGradeLevel());
         existing.setSection(updated.getSection());
         existing.setMeanTarget(updated.getMeanTarget());
-        return schoolClassRepository.save(existing);
+        SchoolClass saved = schoolClassRepository.save(existing);
+
+        // ✅ Cascade — update denormalized className and stream on all students
+        // so they still appear correctly after a class rename
+        List<Student> students = studentRepository.findBySchoolClassClassId(id);
+        students.forEach(student -> {
+            student.setClassName(saved.getClassName());
+            student.setStream(saved.getStream());
+            studentRepository.save(student);
+        });
+
+        return saved;
     }
 
     public SchoolClass assignClassTeacher(Long classId, Long teacherId) {
