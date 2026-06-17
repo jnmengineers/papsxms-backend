@@ -67,4 +67,12 @@ public class StudentController {
         studentService.delete(id);
         return ResponseEntity.ok("user deleted successfully");
     }
+
+
+    @PutMapping("/{studentId}/move-class/{classId}")
+    public ResponseEntity<Student> moveToClass(
+            @PathVariable Long studentId,
+            @PathVariable Long classId) {
+        return ResponseEntity.ok(studentService.moveToClass(studentId, classId));
+    }
 }

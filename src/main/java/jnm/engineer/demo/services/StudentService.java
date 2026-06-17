@@ -89,4 +89,18 @@ public class StudentService {
         // Now delete student
         studentRepository.deleteById(id);
     }
+
+    // ✅ Move student to a new class — used for end-of-year promotion
+    // Student keeps all results and report cards
+    public Student moveToClass(Long studentId, Long classId) {
+        Student student = getById(studentId);
+        SchoolClass newClass = schoolClassRepository.findById(classId)
+                .orElseThrow(() -> new RuntimeException("Class not found with id: " + classId));
+
+        student.setSchoolClass(newClass);
+        student.setClassName(newClass.getClassName());
+        student.setStream(newClass.getStream());
+
+        return studentRepository.save(student);
+    }
 }
