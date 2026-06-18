@@ -19,6 +19,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import java.util.Arrays;
 import java.util.List;
+import org.springframework.http.HttpMethod;
 
 @Configuration
 @EnableWebSecurity
@@ -37,9 +38,12 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
+
+
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.HEAD, "/**").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
                         .anyRequest().authenticated()
                 )
