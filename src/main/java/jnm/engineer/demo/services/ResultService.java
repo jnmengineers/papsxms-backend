@@ -16,11 +16,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.Optional;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class ResultService {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ResultService.class);
     private final ResultRepository resultRepository;
     private final GradeScaleRepository gradeScaleRepository;
     private final StudentRepository studentRepository;
@@ -112,57 +114,38 @@ public class ResultService {
             if (item.getMarksObtained() < 0 || item.getMarksObtained() > 100) { skipped++; continue; }
 
             try {
-                if (item.getResultId() != null) {
-                    // ── UPDATE existing result ───────────────────────────────
-                    Result existing = resultRepository.findById(item.getResultId())
-                            .orElse(null);
-
-                    if (existing != null) {
-                        existing.setMarksObtained(item.getMarksObtained());
-                        existing.setMaxMarks(item.getMaxMarks() != null ? item.getMaxMarks() : 100.0);
-                        // Re-calculate grade using gradeScale
-                        gradeScaleRepository.findByMark(item.getMarksObtained()).ifPresent(scale -> {
-                            existing.setGrade(scale.getGradeLetter());
-                            existing.setRemarks(scale.getRemarks());
-                        });
-                        resultRepository.save(existing);
-                        updated++;
-                    } else {
-                        // resultId given but not found — create new
-                        saved += createNewResult(exam, item, errors);
-                    }
-
-                } else {
-                    // ── CHECK for existing result (avoid duplicate) ──────────
-                    boolean exists = resultRepository.existsByStudentStudentIdAndExamExamIdAndSubjectSubjectId(
-                            item.getStudentId(), request.getExamId(), item.getSubjectId()
-                    );
-
-                    if (exists) {
-                        // Update the existing record instead of creating duplicate
-                        resultRepository.findByStudentStudentIdAndExamExamIdAndSubjectSubjectId(
+                // ── ALWAYS UPSERT: check if result exists by student+exam+subject ──
+                // This handles all cases: new, update, retry after partial failure
+                Optional<Result> existingOpt = resultRepository
+                        .findByStudentStudentIdAndExamExamIdAndSubjectSubjectId(
                                 item.getStudentId(), request.getExamId(), item.getSubjectId()
-                        ).ifPresent(existing -> {
-                            existing.setMarksObtained(item.getMarksObtained());
-                            existing.setMaxMarks(item.getMaxMarks() != null ? item.getMaxMarks() : 100.0);
-                            gradeScaleRepository.findByMark(item.getMarksObtained()).ifPresent(scale -> {
-                                existing.setGrade(scale.getGradeLetter());
-                                existing.setRemarks(scale.getRemarks());
-                            });
-                            resultRepository.save(existing);
-                        });
-                        updated++;
-                    } else {
-                        saved += createNewResult(exam, item, errors);
-                    }
+                        );
+
+                if (existingOpt.isPresent()) {
+                    // ── UPDATE existing ──────────────────────────────────────
+                    Result existing = existingOpt.get();
+                    existing.setMarksObtained(item.getMarksObtained());
+                    existing.setMaxMarks(item.getMaxMarks() != null ? item.getMaxMarks() : 100.0);
+                    gradeScaleRepository.findByMark(item.getMarksObtained()).ifPresent(scale -> {
+                        existing.setGrade(scale.getGradeLetter());
+                        existing.setRemarks(scale.getRemarks());
+                    });
+                    resultRepository.save(existing);
+                    updated++;
+                } else {
+                    // ── CREATE new ───────────────────────────────────────────
+                    saved += createNewResult(exam, item, errors);
                 }
 
             } catch (Exception e) {
                 failed++;
-                errors.add("Student " + item.getStudentId() + " / Subject " + item.getSubjectId() + ": " + e.getMessage());
+                String errMsg = "Student " + item.getStudentId() + " / Subject " + item.getSubjectId() + ": " + e.getMessage();
+                errors.add(errMsg);
+                log.error("BulkSave error: {}", errMsg, e);
             }
         }
 
+        log.info("BulkSave complete — saved:{} updated:{} skipped:{} failed:{}", saved, updated, skipped, failed);
         String message = String.format("Saved: %d, Updated: %d, Skipped: %d, Failed: %d",
                 saved, updated, skipped, failed);
         return new BulkResultResponse(saved, updated, skipped, failed, errors, message);
