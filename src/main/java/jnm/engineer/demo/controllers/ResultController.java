@@ -52,7 +52,9 @@ public class ResultController {
 
     @PutMapping("/{id}")
     public ResponseEntity<Result> update(@PathVariable Long id,
-                                         @Valid @RequestBody Result result){
+                                         @RequestBody Result result){
+        // @Valid removed — update only needs marksObtained and maxMarks
+        // student/subject/exam are resolved from existing record in service
         return ResponseEntity.ok(resultService.update(id, result));
     }
 
