@@ -44,6 +44,11 @@ public class Exam {
     @Column(nullable = false, length = 20)
     private String classLevel;
 
+    // ✅ NEW — identifies exam position within a term
+    // Values: OPENING, MID_TERM, END_TERM
+    @Column(length = 20)
+    private String examType;
+
     // ✅ Changed to EAGER — fixes lazy proxy serialization error
     @JsonIgnoreProperties({"exams", "hibernateLazyInitializer", "handler"})
     @ManyToOne(fetch = FetchType.EAGER)

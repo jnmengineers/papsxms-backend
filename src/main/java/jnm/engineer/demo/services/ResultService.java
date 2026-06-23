@@ -16,8 +16,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.Map;
 import java.util.Optional;
 import java.util.List;
+
 
 @Service
 @RequiredArgsConstructor
@@ -178,5 +180,173 @@ public class ResultService {
             errors.add("Create failed - Student " + item.getStudentId() + ": " + e.getMessage());
             return 0;
         }
+    }
+
+    // ── Progressive results for a student across all exams in a term ──────────
+    public Map<String, Object> getProgressiveResults(Long studentId, Integer term, String academicYear) {
+
+        // Get all exams for this term and year, ordered by exam type
+        List<Exam> termExams = examRepository.findAll().stream()
+                .filter(e -> e.getTerm() != null && e.getTerm().equals(term)
+                        && academicYear.equals(e.getAcademicYear()))
+                .sorted((a, b) -> {
+                    int orderA = examTypeOrder(a.getExamType());
+                    int orderB = examTypeOrder(b.getExamType());
+                    return Integer.compare(orderA, orderB);
+                })
+                .collect(java.util.stream.Collectors.toList());
+
+        // Get all results for this student in this term
+        List<Result> allResults = resultRepository.findByStudentStudentId(studentId).stream()
+                .filter(r -> termExams.stream()
+                        .anyMatch(e -> e.getExamId().equals(r.getExam().getExamId())))
+                .collect(java.util.stream.Collectors.toList());
+
+        // Group by subject
+        Map<String, Map<String, Object>> subjectMap = new java.util.LinkedHashMap<>();
+        for (Result r : allResults) {
+            String subjectName = r.getSubject().getSubjectName();
+            String subjectId = r.getSubject().getSubjectId().toString();
+            String key = subjectId + "_" + subjectName;
+
+            if (!subjectMap.containsKey(key)) {
+                Map<String, Object> subjectData = new java.util.LinkedHashMap<>();
+                subjectData.put("subjectId", subjectId);
+                subjectData.put("subjectName", subjectName);
+                subjectData.put("marks", new java.util.LinkedHashMap<String, Object>());
+                subjectMap.put(key, subjectData);
+            }
+
+            String examType = r.getExam().getExamType() != null ? r.getExam().getExamType() : "MID_TERM";
+            @SuppressWarnings("unchecked")
+            Map<String, Object> marks = (Map<String, Object>) subjectMap.get(key).get("marks");
+            marks.put(examType, r.getMarksObtained());
+        }
+
+        // Calculate trend per subject (first exam → last exam available)
+        List<Map<String, Object>> subjects = new java.util.ArrayList<>();
+        for (Map<String, Object> subData : subjectMap.values()) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> marks = (Map<String, Object>) subData.get("marks");
+
+            Double opening = marks.containsKey("OPENING") ? ((Number) marks.get("OPENING")).doubleValue() : null;
+            Double midTerm = marks.containsKey("MID_TERM") ? ((Number) marks.get("MID_TERM")).doubleValue() : null;
+            Double endTerm = marks.containsKey("END_TERM") ? ((Number) marks.get("END_TERM")).doubleValue() : null;
+
+            // Latest available minus first available
+            Double first = opening != null ? opening : midTerm;
+            Double latest = endTerm != null ? endTerm : (midTerm != null ? midTerm : opening);
+            Double change = (first != null && latest != null && !first.equals(latest)) ? latest - first : null;
+            String trend = change == null ? "—" : change > 0 ? "↑" : change < 0 ? "↓" : "↔";
+            String trendColor = change == null ? "#999" : change > 0 ? "#28a745" : change < 0 ? "#dc3545" : "#ffc107";
+
+            subData.put("opening", opening);
+            subData.put("midTerm", midTerm);
+            subData.put("endTerm", endTerm);
+            subData.put("change", change != null ? String.format("%+.1f", change) : "—");
+            subData.put("trend", trend);
+            subData.put("trendColor", trendColor);
+            subjects.add(subData);
+        }
+
+        // Student info
+        Student student = studentRepository.findById(studentId)
+                .orElseThrow(() -> new RuntimeException("Student not found"));
+
+        Map<String, Object> response = new java.util.LinkedHashMap<>();
+        response.put("student", student);
+        response.put("term", term);
+        response.put("academicYear", academicYear);
+        response.put("exams", termExams);
+        response.put("subjects", subjects);
+        return response;
+    }
+
+    // ── Most improved students in a class for a term ──────────────────────────
+    public List<Map<String, Object>> getMostImprovedStudents(String className, Integer term, String academicYear) {
+
+        // Get opening and latest exam for this term
+        List<Exam> termExams = examRepository.findAll().stream()
+                .filter(e -> e.getTerm() != null && e.getTerm().equals(term)
+                        && academicYear.equals(e.getAcademicYear()))
+                .sorted((a, b) -> Integer.compare(examTypeOrder(a.getExamType()), examTypeOrder(b.getExamType())))
+                .collect(java.util.stream.Collectors.toList());
+
+        if (termExams.size() < 2) return new java.util.ArrayList<>();
+
+        Exam firstExam = termExams.get(0);
+        Exam latestExam = termExams.get(termExams.size() - 1);
+
+        // Get results for both exams filtered by class
+        List<Result> firstResults = resultRepository.findByExamExamId(firstExam.getExamId()).stream()
+                .filter(r -> className.equals(r.getStudent().getClassName()))
+                .collect(java.util.stream.Collectors.toList());
+
+        List<Result> latestResults = resultRepository.findByExamExamId(latestExam.getExamId()).stream()
+                .filter(r -> className.equals(r.getStudent().getClassName()))
+                .collect(java.util.stream.Collectors.toList());
+
+        // Calculate average per student in each exam
+        Map<Long, Double> firstAvg = averageByStudent(firstResults);
+        Map<Long, Double> latestAvg = averageByStudent(latestResults);
+
+        // Calculate improvement
+        List<Map<String, Object>> improvements = new java.util.ArrayList<>();
+        for (Long studentId : latestAvg.keySet()) {
+            if (!firstAvg.containsKey(studentId)) continue;
+            double improvement = latestAvg.get(studentId) - firstAvg.get(studentId);
+
+            // Get student name
+            Result sample = latestResults.stream()
+                    .filter(r -> r.getStudent().getStudentId().equals(studentId))
+                    .findFirst().orElse(null);
+            if (sample == null) continue;
+
+            Map<String, Object> entry = new java.util.LinkedHashMap<>();
+            entry.put("studentId", studentId);
+            entry.put("studentName", sample.getStudent().getFirstName() + " " + sample.getStudent().getLastName());
+            entry.put("admissionNumber", sample.getStudent().getAdmissionNumber());
+            entry.put("className", className);
+            entry.put("openingAvg", String.format("%.1f", firstAvg.get(studentId)));
+            entry.put("latestAvg", String.format("%.1f", latestAvg.get(studentId)));
+            entry.put("improvement", String.format("%+.1f", improvement));
+            entry.put("improvementValue", improvement);
+            entry.put("trend", improvement > 0 ? "↑" : improvement < 0 ? "↓" : "↔");
+            entry.put("trendColor", improvement > 0 ? "#28a745" : improvement < 0 ? "#dc3545" : "#ffc107");
+            improvements.add(entry);
+        }
+
+        // Sort by improvement descending
+        improvements.sort((a, b) -> Double.compare(
+                (Double) b.get("improvementValue"),
+                (Double) a.get("improvementValue")
+        ));
+
+        return improvements;
+    }
+
+    // Helper — order OPENING=1, MID_TERM=2, END_TERM=3
+    private int examTypeOrder(String examType) {
+        if (examType == null) return 2;
+        switch (examType) {
+            case "OPENING": return 1;
+            case "MID_TERM": return 2;
+            case "END_TERM": return 3;
+            default: return 2;
+        }
+    }
+
+    // Helper — average marks per student from a list of results
+    private Map<Long, Double> averageByStudent(List<Result> results) {
+        Map<Long, List<Double>> grouped = new java.util.LinkedHashMap<>();
+        for (Result r : results) {
+            Long sid = r.getStudent().getStudentId();
+            grouped.computeIfAbsent(sid, k -> new java.util.ArrayList<>()).add(r.getMarksObtained());
+        }
+        Map<Long, Double> averages = new java.util.LinkedHashMap<>();
+        grouped.forEach((sid, marks) ->
+                averages.put(sid, marks.stream().mapToDouble(Double::doubleValue).average().orElse(0))
+        );
+        return averages;
     }
 }

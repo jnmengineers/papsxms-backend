@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequiredArgsConstructor
@@ -53,8 +54,6 @@ public class ResultController {
     @PutMapping("/{id}")
     public ResponseEntity<Result> update(@PathVariable Long id,
                                          @RequestBody Result result){
-        // @Valid removed — update only needs marksObtained and maxMarks
-        // student/subject/exam are resolved from existing record in service
         return ResponseEntity.ok(resultService.update(id, result));
     }
 
@@ -64,10 +63,29 @@ public class ResultController {
         return ResponseEntity.ok("Result deleted successfully");
     }
 
-    // ✅ NEW — Bulk save all marks in one request
-    // Handles new saves, updates, duplicates, and empty cells automatically
+    // ✅ Bulk save all marks in one request
     @PostMapping("/bulk-save")
     public ResponseEntity<BulkResultResponse> bulkSave(@RequestBody BulkResultRequest request){
         return ResponseEntity.ok(resultService.bulkSave(request));
+    }
+
+    // ✅ NEW — Progressive results for a student across all exams in a term
+    // Returns results grouped by subject with marks per exam type (OPENING/MID_TERM/END_TERM)
+    @GetMapping("/progressive/student/{studentId}/term/{term}/year/{academicYear}")
+    public ResponseEntity<Map<String, Object>> getProgressiveResults(
+            @PathVariable Long studentId,
+            @PathVariable Integer term,
+            @PathVariable String academicYear) {
+        return ResponseEntity.ok(resultService.getProgressiveResults(studentId, term, academicYear));
+    }
+
+    // ✅ NEW — Most improved students in a class for a term
+    // Compares average from OPENING to latest exam available
+    @GetMapping("/progressive/class/{className}/term/{term}/year/{academicYear}/improvements")
+    public ResponseEntity<List<Map<String, Object>>> getMostImproved(
+            @PathVariable String className,
+            @PathVariable Integer term,
+            @PathVariable String academicYear) {
+        return ResponseEntity.ok(resultService.getMostImprovedStudents(className, term, academicYear));
     }
 }
