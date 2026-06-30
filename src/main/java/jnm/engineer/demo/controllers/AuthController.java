@@ -44,11 +44,16 @@ public class AuthController {
         // Get linked class for teacher
         Long linkedClassId = null;
         String linkedClassName = null;
+        String linkedStream = null; // ✅ NEW — needed so frontend can match
+        // populated class tiles reliably without
+        // relying on a separate /api/classes fetch
+        // or nested classId in result objects.
 
         User user = userRepository.findByUsername(username).orElse(null);
         if (user != null && user.getLinkedClass() != null) {
             linkedClassId = user.getLinkedClass().getClassId();
             linkedClassName = user.getLinkedClass().getClassName();
+            linkedStream = user.getLinkedClass().getStream(); // ✅ NEW
         }
 
         String token = jwtUtil.generateToken(username, role);
@@ -57,6 +62,7 @@ public class AuthController {
         boolean mustChangePassword = user != null && user.isMustChangePassword();
 
         LoginResponse response = new LoginResponse(token, role, username, linkedClassId, linkedClassName);
+        response.setLinkedStream(linkedStream); // ✅ NEW
         response.setMustChangePassword(mustChangePassword);
 
         return ResponseEntity.ok(response);
