@@ -49,6 +49,11 @@ public class Exam {
     @Column(length = 20)
     private String examType;
 
+    // new  - sequential position within a term(1, 2, 3....).
+	// Null for Extra-type exams, which  are excluded from progressive report tracking
+	@Column
+	private Integer examOrder;
+
     // ✅ Changed to EAGER — fixes lazy proxy serialization error
     @JsonIgnoreProperties({"exams", "hibernateLazyInitializer", "handler"})
     @ManyToOne(fetch = FetchType.EAGER)
