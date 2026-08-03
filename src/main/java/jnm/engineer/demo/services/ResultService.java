@@ -262,6 +262,93 @@ public class ResultService {
         return response;
     }
 
+
+       // ── Progressive results for a student, anchored to a specific exam ────────
+    // Only includes exams with examOrder <= the anchor exam's examOrder, within
+    // the same term/academicYear. EXTRA-type exams (examOrder = null) are excluded
+    // from the sequence entirely unless the anchor itself is the EXTRA exam.
+    public Map<String, Object> getProgressiveResultsUpToExam(Long studentId, Long examId) {
+
+        Exam anchorExam = examRepository.findById(examId)
+                .orElseThrow(() -> new RuntimeException("Exam not found: " + examId));
+
+        Integer anchorOrder = anchorExam.getExamOrder();
+        Integer term = anchorExam.getTerm();
+        String academicYear = anchorExam.getAcademicYear();
+
+        List<Exam> termExams;
+        if (anchorOrder == null) {
+            // Anchor itself is an EXTRA (or otherwise unordered) exam — show only itself, not progressive
+            termExams = new java.util.ArrayList<>();
+            termExams.add(anchorExam);
+        } else {
+            termExams = examRepository.findByTermAndAcademicYear(term, academicYear).stream()
+                    .filter(e -> e.getExamOrder() != null && e.getExamOrder() <= anchorOrder)
+                    .sorted(java.util.Comparator.comparing(Exam::getExamOrder))
+                    .collect(java.util.stream.Collectors.toList());
+        }
+
+        List<Result> allResults = resultRepository.findByStudentStudentId(studentId).stream()
+                .filter(r -> termExams.stream()
+                        .anyMatch(e -> e.getExamId().equals(r.getExam().getExamId())))
+                .collect(java.util.stream.Collectors.toList());
+
+        Map<String, Map<String, Object>> subjectMap = new java.util.LinkedHashMap<>();
+        for (Result r : allResults) {
+            String subjectName = r.getSubject().getSubjectName();
+            String subjectId = r.getSubject().getSubjectId().toString();
+            String key = subjectId + "_" + subjectName;
+
+            if (!subjectMap.containsKey(key)) {
+                Map<String, Object> subjectData = new java.util.LinkedHashMap<>();
+                subjectData.put("subjectId", subjectId);
+                subjectData.put("subjectName", subjectName);
+                subjectData.put("marks", new java.util.LinkedHashMap<String, Object>());
+                subjectMap.put(key, subjectData);
+            }
+
+            String examType = r.getExam().getExamType() != null ? r.getExam().getExamType() : "MID_TERM";
+            @SuppressWarnings("unchecked")
+            Map<String, Object> marks = (Map<String, Object>) subjectMap.get(key).get("marks");
+            marks.put(examType, r.getMarksObtained());
+        }
+
+        List<Map<String, Object>> subjects = new java.util.ArrayList<>();
+        for (Map<String, Object> subData : subjectMap.values()) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> marks = (Map<String, Object>) subData.get("marks");
+
+            Double opening = marks.containsKey("OPENING") ? ((Number) marks.get("OPENING")).doubleValue() : null;
+            Double midTerm = marks.containsKey("MID_TERM") ? ((Number) marks.get("MID_TERM")).doubleValue() : null;
+            Double endTerm = marks.containsKey("END_TERM") ? ((Number) marks.get("END_TERM")).doubleValue() : null;
+
+            Double first = opening != null ? opening : midTerm;
+            Double latest = endTerm != null ? endTerm : (midTerm != null ? midTerm : opening);
+            Double change = (first != null && latest != null && !first.equals(latest)) ? latest - first : null;
+            String trend = change == null ? "—" : change > 0 ? "↑" : change < 0 ? "↓" : "↔";
+            String trendColor = change == null ? "#999" : change > 0 ? "#28a745" : change < 0 ? "#dc3545" : "#ffc107";
+
+            subData.put("opening", opening);
+            subData.put("midTerm", midTerm);
+            subData.put("endTerm", endTerm);
+            subData.put("change", change != null ? String.format("%+.1f", change) : "—");
+            subData.put("trend", trend);
+            subData.put("trendColor", trendColor);
+            subjects.add(subData);
+        }
+
+        Student student = studentRepository.findById(studentId)
+                .orElseThrow(() -> new RuntimeException("Student not found"));
+
+        Map<String, Object> response = new java.util.LinkedHashMap<>();
+        response.put("student", student);
+        response.put("term", term);
+        response.put("academicYear", academicYear);
+        response.put("exams", termExams);
+        response.put("subjects", subjects);
+        return response;
+    }
+
     // ── Most improved students in a class for a term ──────────────────────────
     public List<Map<String, Object>> getMostImprovedStudents(String className, Integer term, String academicYear) {
 
