@@ -78,6 +78,16 @@ public class ResultController {
             @PathVariable String academicYear) {
         return ResponseEntity.ok(resultService.getProgressiveResults(studentId, term, academicYear));
     }
+    
+    // ✅ NEW — Progressive results anchored to a specific exam
+    // Only returns exam types up to and including the given exam's position in the term
+    // (e.g. requesting an Opener's exam ID will never include Mid Term or End Term data)
+    @GetMapping("/progressive/student/{studentId}/upto-exam/{examId}")
+    public ResponseEntity<Map<String, Object>> getProgressiveResultsUpToExam(
+            @PathVariable Long studentId,
+            @PathVariable Long examId) {
+        return ResponseEntity.ok(resultService.getProgressiveResultsUpToExam(studentId, examId));
+    }
 
     // ✅ NEW — Most improved students in a class for a term
     // Compares average from OPENING to latest exam available
