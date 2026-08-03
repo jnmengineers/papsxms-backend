@@ -11,4 +11,5 @@ public interface ExamRepository extends JpaRepository<Exam, Long> {
     List<Exam> findByAcademicYear(String academicYear);
     List<Exam> findByTerm(Integer term);
     List<Exam> findByClassLevel(String classLevel);
+    List<Exam> findByTermAndAcademicYear(Integer term, String academicYear);
 }

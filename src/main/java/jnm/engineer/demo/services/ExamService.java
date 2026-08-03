@@ -7,8 +7,9 @@ import jnm.engineer.demo.models.Result;
 import jnm.engineer.demo.repositories.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import java.util.Comparator;
+import java.util.Objects;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.util.List;
 
 @Service
@@ -42,7 +43,27 @@ public class ExamService {
     }
 
     public Exam create(Exam exam){
+        assignExamOrder(exam);
         return examRepository.save(exam);
+    }
+
+    // Auto-assigns examOrder based on examType and existing exams in the same term/year.
+    // EXTRA-type exams always get NULL — they're excluded from progressive report tracking.
+    private void assignExamOrder(Exam exam){
+        if ("EXTRA".equals(exam.getExamType())){
+            exam.setExamOrder(null);
+            return;
+        }
+        if (exam.getExamOrder() != null){
+            return; // caller explicitly set one — respect it
+        }
+        List<Exam> existing = examRepository.findByTermAndAcademicYear(exam.getTerm(), exam.getAcademicYear());
+        Integer maxOrder = existing.stream()
+                .map(Exam::getExamOrder)
+                .filter(Objects::nonNull)
+                .max(Comparator.naturalOrder())
+                .orElse(0);
+        exam.setExamOrder(maxOrder + 1);
     }
 
     public Exam update(Long id, Exam updated){
@@ -53,6 +74,10 @@ public class ExamService {
         existing.setStartDate(updated.getStartDate());
         existing.setEndDate(updated.getEndDate());
         existing.setClassLevel(updated.getClassLevel());
+        existing.setExamType(updated.getExamType());
+        if ("EXTRA".equals(existing.getExamType())){
+            existing.setExamOrder(null);
+        }
         return examRepository.save(existing);
     }
 
