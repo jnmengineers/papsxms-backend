@@ -14,7 +14,6 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class SectionReportService {
-
     private final ReportCardRepository reportCardRepository;
     private final ResultRepository resultRepository;
     private final SchoolClassRepository schoolClassRepository;
@@ -37,24 +36,37 @@ public class SectionReportService {
             sectionData.put("meanTarget", sectionInfo.target);
             sectionData.put("grades", sectionInfo.grades);
 
-            // Null-safe filter — only cards whose student+schoolClass+gradeLevel is in this section
+            // ✅ All RESULTS for this section (used for all mean calculations)
+            List<Result> sectionResults = allResults.stream()
+                    .filter(r -> {
+                        if (r.getStudent() == null) return false;
+                        if (r.getStudent().getSchoolClass() == null) return false;
+                        String gradeLevel = r.getStudent().getSchoolClass().getGradeLevel();
+                        return gradeLevel != null && sectionInfo.grades.contains(gradeLevel);
+                    })
+                    .collect(Collectors.toList());
+
+            // Report cards still used for student counts / target counts
             List<ReportCard> sectionCards = allCards.stream()
                     .filter(card -> {
                         if (card.getStudent() == null) return false;
                         if (card.getStudent().getSchoolClass() == null) return false;
                         String gradeLevel = card.getStudent().getSchoolClass().getGradeLevel();
-                        if (gradeLevel == null) return false;
-                        return sectionInfo.grades.contains(gradeLevel);
+                        return gradeLevel != null && sectionInfo.grades.contains(gradeLevel);
                     })
                     .collect(Collectors.toList());
 
-            if (!sectionCards.isEmpty()) {
+            if (!sectionResults.isEmpty()) {
                 double sectionAvg = sectionCards.stream()
                         .mapToDouble(ReportCard::getAverageMarks)
                         .average()
                         .orElse(0.0);
 
-                sectionData.put("totalStudents", sectionCards.size());
+                long distinctStudents = sectionResults.stream()
+                        .map(r -> r.getStudent().getStudentId())
+                        .distinct().count();
+
+                sectionData.put("totalStudents", (int) distinctStudents);
                 sectionData.put("sectionAverage", Math.round(sectionAvg * 100.0) / 100.0);
                 sectionData.put("meetingTarget", sectionAvg >= sectionInfo.target);
                 sectionData.put("aboveTarget", sectionCards.stream()
@@ -62,151 +74,118 @@ public class SectionReportService {
                 sectionData.put("belowTarget", sectionCards.stream()
                         .filter(c -> c.getAverageMarks() < sectionInfo.target).count());
 
-                // ✅ Group by GRADE LEVEL — the "parent class" (e.g. G1 covers G1R, G1B, G1Y)
-                Map<String, List<ReportCard>> byGrade = sectionCards.stream()
-                        .filter(card -> card.getStudent().getSchoolClass() != null
-                                && card.getStudent().getSchoolClass().getGradeLevel() != null)
+                // ✅ Group RESULTS by GRADE LEVEL (combines all streams: G6B + G6Y → G6)
+                Map<String, List<Result>> resultsByGrade = sectionResults.stream()
                         .collect(Collectors.groupingBy(
-                                card -> card.getStudent().getSchoolClass().getGradeLevel()
+                                r -> r.getStudent().getSchoolClass().getGradeLevel()
                         ));
 
                 List<Map<String, Object>> classBreakdown = new ArrayList<>();
-                byGrade.forEach((gradeLevel, gradeCards) -> {
+
+                resultsByGrade.forEach((gradeLevel, gradeResults) -> {
                     Map<String, Object> classData = new LinkedHashMap<>();
-                    double gradeAvg = gradeCards.stream()
-                            .mapToDouble(ReportCard::getAverageMarks)
-                            .average()
-                            .orElse(0.0);
 
-                    // className here represents the PARENT grade (e.g. "G1")
-                    classData.put("className", gradeLevel);
-                    classData.put("totalStudents", gradeCards.size());
-                    classData.put("classAverage", Math.round(gradeAvg * 100.0) / 100.0);
-                    classData.put("meetingTarget", gradeAvg >= sectionInfo.target);
-                    classData.put("topStudent", gradeCards.stream()
-                            .max(Comparator.comparingDouble(ReportCard::getAverageMarks))
-                            .map(c -> c.getStudent().getFirstName() + " " + c.getStudent().getLastName())
-                            .orElse("N/A"));
-                    classData.put("topStudentAvg", gradeCards.stream()
-                            .mapToDouble(ReportCard::getAverageMarks)
-                            .max().orElse(0.0));
-
-                    // ✅ Sub-group by actual stream className (e.g. G1R, G1B, G1Y) under this grade
-                    Map<String, List<ReportCard>> byStream = gradeCards.stream()
-                            .filter(card -> card.getStudent().getSchoolClass() != null
-                                    && card.getStudent().getSchoolClass().getClassName() != null)
-                            .collect(Collectors.groupingBy(
-                                    card -> card.getStudent().getSchoolClass().getClassName()
-                            ));
-
-                    List<Map<String, Object>> streamBreakdown = new ArrayList<>();
-                    byStream.forEach((streamClassName, streamCards) -> {
-                        Map<String, Object> streamData = new LinkedHashMap<>();
-                        double streamAvg = streamCards.stream()
-                                .mapToDouble(ReportCard::getAverageMarks)
-                                .average().orElse(0.0);
-
-                        streamData.put("className", streamClassName); // e.g. G1R
-                        streamData.put("totalStudents", streamCards.size());
-                        streamData.put("classAverage", Math.round(streamAvg * 100.0) / 100.0);
-                        streamData.put("meetingTarget", streamAvg >= sectionInfo.target);
-                        streamData.put("topStudent", streamCards.stream()
-                                .max(Comparator.comparingDouble(ReportCard::getAverageMarks))
-                                .map(c -> c.getStudent().getFirstName() + " " + c.getStudent().getLastName())
-                                .orElse("N/A"));
-                        streamData.put("topStudentAvg", streamCards.stream()
-                                .mapToDouble(ReportCard::getAverageMarks)
-                                .max().orElse(0.0));
-
-                        // Subject performance for this specific stream
-                        List<Result> streamResults = allResults.stream()
-                                .filter(r -> r.getStudent() != null
-                                        && r.getStudent().getSchoolClass() != null
-                                        && streamClassName.equals(r.getStudent().getSchoolClass().getClassName()))
-                                .collect(Collectors.toList());
-
-                        Map<String, List<Result>> bySubject = streamResults.stream()
-                                .filter(r -> r.getSubject() != null && r.getSubject().getSubjectName() != null)
-                                .collect(Collectors.groupingBy(r -> r.getSubject().getSubjectName()));
-
-                        List<Map<String, Object>> subjectPerformance = new ArrayList<>();
-                        bySubject.forEach((subjectName, subjectResults) -> {
-                            Map<String, Object> subjectData = new LinkedHashMap<>();
-                            double subjectAvg = subjectResults.stream()
-                                    .mapToDouble(Result::getMarksObtained)
-                                    .average().orElse(0.0);
-                            subjectData.put("subjectName", subjectName);
-                            subjectData.put("average", Math.round(subjectAvg * 100.0) / 100.0);
-                            subjectData.put("meetingTarget", subjectAvg >= sectionInfo.target);
-                            subjectPerformance.add(subjectData);
-                        });
-                        subjectPerformance.sort((a, b) ->
-                                Double.compare((Double) b.get("average"), (Double) a.get("average")));
-
-                        streamData.put("subjectPerformance", subjectPerformance);
-                        streamBreakdown.add(streamData);
-                    });
-
-                    // Sort streams alphabetically (G1B, G1R, G1Y)
-                    streamBreakdown.sort((a, b) ->
-                            ((String) a.get("className")).compareTo((String) b.get("className")));
-
-                    classData.put("streams", streamBreakdown);
-
-                    // ✅ Also aggregate subject performance across the WHOLE grade (all streams combined)
-                    List<Result> gradeResults = allResults.stream()
-                            .filter(r -> r.getStudent() != null
-                                    && r.getStudent().getSchoolClass() != null
-                                    && gradeLevel.equals(r.getStudent().getSchoolClass().getGradeLevel()))
-                            .collect(Collectors.toList());
-
+                    // ✅ Subject means across the WHOLE grade (all streams combined)
                     Map<String, List<Result>> gradeBySubject = gradeResults.stream()
                             .filter(r -> r.getSubject() != null && r.getSubject().getSubjectName() != null)
                             .collect(Collectors.groupingBy(r -> r.getSubject().getSubjectName()));
 
                     List<Map<String, Object>> gradeSubjectPerformance = new ArrayList<>();
-                    gradeBySubject.forEach((subjectName, subjectResults) -> {
-                        Map<String, Object> subjectData = new LinkedHashMap<>();
-                        double subjectAvg = subjectResults.stream()
+                    double gradeTotalMean = 0.0;
+                    for (Map.Entry<String, List<Result>> entry : gradeBySubject.entrySet()) {
+                        double subjectAvg = entry.getValue().stream()
                                 .mapToDouble(Result::getMarksObtained)
                                 .average().orElse(0.0);
-                        subjectData.put("subjectName", subjectName);
+                        Map<String, Object> subjectData = new LinkedHashMap<>();
+                        subjectData.put("subjectName", entry.getKey());
                         subjectData.put("average", Math.round(subjectAvg * 100.0) / 100.0);
                         subjectData.put("meetingTarget", subjectAvg >= sectionInfo.target);
                         gradeSubjectPerformance.add(subjectData);
-                    });
+                        gradeTotalMean += subjectAvg;
+                    }
                     gradeSubjectPerformance.sort((a, b) ->
                             Double.compare((Double) b.get("average"), (Double) a.get("average")));
 
+                    int gradeSubjectCount = gradeBySubject.size();
+                    double gradeMeanOfSubjects = gradeSubjectCount > 0 ? gradeTotalMean / gradeSubjectCount : 0.0;
+
+                    long gradeStudents = gradeResults.stream()
+                            .map(r -> r.getStudent().getStudentId())
+                            .distinct().count();
+
+                    classData.put("className", gradeLevel);
+                    classData.put("totalStudents", (int) gradeStudents);
+                    // ✅ classAverage = TOTAL MEAN of subjects (sum of subject means, no division)
+                    classData.put("classAverage", Math.round(gradeTotalMean * 100.0) / 100.0);
+                    classData.put("subjectCount", gradeSubjectCount);
+                    classData.put("meetingTarget", gradeMeanOfSubjects >= sectionInfo.target);
                     classData.put("subjectPerformance", gradeSubjectPerformance);
+
+                    // ✅ Sub-group by className + STREAM (fixes streams merging after DB rename)
+                    Map<String, List<Result>> byStream = gradeResults.stream()
+                            .collect(Collectors.groupingBy(r -> {
+                                String gl = r.getStudent().getSchoolClass().getGradeLevel();
+                                String st = r.getStudent().getSchoolClass().getStream();
+                                return st != null ? gl + st.charAt(0) : gl;
+                            }));
+
+                    List<Map<String, Object>> streamBreakdown = new ArrayList<>();
+                    byStream.forEach((streamLabel, streamResults) -> {
+                        Map<String, Object> streamData = new LinkedHashMap<>();
+
+                        Map<String, List<Result>> streamBySubject = streamResults.stream()
+                                .filter(r -> r.getSubject() != null && r.getSubject().getSubjectName() != null)
+                                .collect(Collectors.groupingBy(r -> r.getSubject().getSubjectName()));
+
+                        List<Map<String, Object>> subjectPerformance = new ArrayList<>();
+                        double streamTotalMean = 0.0;
+                        for (Map.Entry<String, List<Result>> entry : streamBySubject.entrySet()) {
+                            double subjectAvg = entry.getValue().stream()
+                                    .mapToDouble(Result::getMarksObtained)
+                                    .average().orElse(0.0);
+                            Map<String, Object> subjectData = new LinkedHashMap<>();
+                            subjectData.put("subjectName", entry.getKey());
+                            subjectData.put("average", Math.round(subjectAvg * 100.0) / 100.0);
+                            subjectData.put("meetingTarget", subjectAvg >= sectionInfo.target);
+                            subjectPerformance.add(subjectData);
+                            streamTotalMean += subjectAvg;
+                        }
+                        subjectPerformance.sort((a, b) ->
+                                Double.compare((Double) b.get("average"), (Double) a.get("average")));
+
+                        int streamSubjectCount = streamBySubject.size();
+                        double streamMeanOfSubjects = streamSubjectCount > 0 ? streamTotalMean / streamSubjectCount : 0.0;
+
+                        long streamStudents = streamResults.stream()
+                                .map(r -> r.getStudent().getStudentId())
+                                .distinct().count();
+
+                        streamData.put("className", streamLabel); // e.g. "Grade 1 (Blue)"
+                        streamData.put("totalStudents", (int) streamStudents);
+                        // ✅ classAverage = TOTAL MEAN of subjects for this stream
+                        streamData.put("classAverage", Math.round(streamTotalMean * 100.0) / 100.0);
+                        streamData.put("subjectCount", streamSubjectCount);
+                        streamData.put("meetingTarget", streamMeanOfSubjects >= sectionInfo.target);
+                        streamData.put("subjectPerformance", subjectPerformance);
+                        streamBreakdown.add(streamData);
+                    });
+
+                    // ✅ Sort streams by total mean DESCENDING
+                    streamBreakdown.sort((a, b) ->
+                            Double.compare((Double) b.get("classAverage"), (Double) a.get("classAverage")));
+                    classData.put("streams", streamBreakdown);
+
                     classBreakdown.add(classData);
                 });
 
-                // Sort grades alphabetically (G1, G2, G3 ... or PG, PP1, PP2)
+                // ✅ Sort grades by TOTAL MEAN DESCENDING within the section
                 classBreakdown.sort((a, b) ->
-                        ((String) a.get("className")).compareTo((String) b.get("className")));
+                        Double.compare((Double) b.get("classAverage"), (Double) a.get("classAverage")));
 
                 sectionData.put("classBreakdown", classBreakdown);
-
-                List<Map<String, Object>> topPerformers = sectionCards.stream()
-                        .sorted((a, b) -> Double.compare(b.getAverageMarks(), a.getAverageMarks()))
-                        .limit(5)
-                        .map(card -> {
-                            Map<String, Object> performer = new LinkedHashMap<>();
-                            performer.put("name", card.getStudent().getFirstName() + " " + card.getStudent().getLastName());
-                            performer.put("class", card.getStudent().getSchoolClass() != null
-                                    ? card.getStudent().getSchoolClass().getClassName() : "N/A");
-                            performer.put("average", card.getAverageMarks());
-                            performer.put("rank", card.getClassRank());
-                            return performer;
-                        })
-                        .collect(Collectors.toList());
-
-                sectionData.put("topPerformers", topPerformers);
             } else {
                 sectionData.put("totalStudents", 0);
                 sectionData.put("classBreakdown", new ArrayList<>());
-                sectionData.put("topPerformers", new ArrayList<>());
                 sectionData.put("message", "No data available for this section");
             }
 
