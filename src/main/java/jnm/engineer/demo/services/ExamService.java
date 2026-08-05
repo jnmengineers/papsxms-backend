@@ -75,6 +75,8 @@ public class ExamService {
         existing.setEndDate(updated.getEndDate());
         existing.setClassLevel(updated.getClassLevel());
         existing.setExamType(updated.getExamType());
+        existing.setTermOpeningDate(updated.getTermOpeningDate());
+        existing.setTermClosingDate(updated.getTermClosingDate());
         if ("EXTRA".equals(existing.getExamType())){
             existing.setExamOrder(null);
         }

@@ -54,6 +54,13 @@ public class Exam {
 	@Column
 	private Integer examOrder;
 
+    // ✅ NEW — term dates for report card display, set once by admin per exam/term
+    @Column
+    private LocalDate termOpeningDate;
+
+    @Column
+    private LocalDate termClosingDate;
+
     // ✅ Changed to EAGER — fixes lazy proxy serialization error
     @JsonIgnoreProperties({"exams", "hibernateLazyInitializer", "handler"})
     @ManyToOne(fetch = FetchType.EAGER)
