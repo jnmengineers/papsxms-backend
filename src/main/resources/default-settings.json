@@ -246,6 +246,143 @@
   ],
   "_readme_moneyGroups": "Starting money groups, used ONLY when the money_groups table is empty. Order = payment priority (first is paid first). 'charges' = extra charges (by name) to put in the group at that first start. Edit groups later on Finance → Setup.",
   "timetable": {
+    "LOWER_PRIMARY": {
+      "slots": [
+        {
+          "label": "Devotion",
+          "start": "08:00",
+          "end": "08:20",
+          "lesson": false
+        },
+        {
+          "label": "Health Break and Roll Call",
+          "start": "08:20",
+          "end": "08:30",
+          "lesson": false
+        },
+        {
+          "label": "Lesson 1",
+          "start": "08:30",
+          "end": "09:00",
+          "lesson": true
+        },
+        {
+          "label": "Lesson 2",
+          "start": "09:00",
+          "end": "09:30",
+          "lesson": true
+        },
+        {
+          "label": "Break",
+          "start": "09:30",
+          "end": "10:00",
+          "lesson": false
+        },
+        {
+          "label": "Lesson 3",
+          "start": "10:00",
+          "end": "10:30",
+          "lesson": true
+        },
+        {
+          "label": "Lesson 4",
+          "start": "10:30",
+          "end": "11:00",
+          "lesson": true
+        },
+        {
+          "label": "Break",
+          "start": "11:00",
+          "end": "11:30",
+          "lesson": false
+        },
+        {
+          "label": "Lesson 5",
+          "start": "11:30",
+          "end": "12:00",
+          "lesson": true
+        },
+        {
+          "label": "Lesson 6",
+          "start": "12:00",
+          "end": "12:30",
+          "lesson": true
+        },
+        {
+          "label": "Lunch",
+          "start": "12:30",
+          "end": "14:00",
+          "lesson": false
+        },
+        {
+          "label": "Computer",
+          "start": "14:00",
+          "end": "14:30",
+          "lesson": false
+        },
+        {
+          "label": "Homework",
+          "start": "14:30",
+          "end": "15:00",
+          "lesson": false
+        },
+        {
+          "label": "Games",
+          "start": "15:10",
+          "end": "16:00",
+          "lesson": false
+        }
+      ],
+      "lessons": [
+        {
+          "names": [
+            "English"
+          ],
+          "perWeek": 5
+        },
+        {
+          "names": [
+            "Mathematics",
+            "Maths",
+            "Math",
+            "Mathematical Activities"
+          ],
+          "perWeek": 5
+        },
+        {
+          "names": [
+            "Kiswahili",
+            "Kisw"
+          ],
+          "perWeek": 4
+        },
+        {
+          "names": [
+            "Creative Activities",
+            "Creative Arts",
+            "Creative"
+          ],
+          "perWeek": 6
+        },
+        {
+          "names": [
+            "Environmental Activities",
+            "Environmental",
+            "Env"
+          ],
+          "perWeek": 5
+        },
+        {
+          "names": [
+            "CRE",
+            "Christian Religious Education",
+            "Religious Education",
+            "Religious Activities"
+          ],
+          "perWeek": 4
+        }
+      ]
+    },
     "UPPER_PRIMARY": {
       "slots": [
         {
@@ -544,7 +681,60 @@
           "perWeek": 4
         }
       ]
+    },
+    "PRE_SCHOOL_example": {
+      "slots": [
+        {
+          "label": "Lesson 1",
+          "start": "08:30",
+          "end": "09:00",
+          "lesson": true
+        },
+        {
+          "label": "Lesson 2",
+          "start": "09:00",
+          "end": "09:30",
+          "lesson": true
+        },
+        {
+          "label": "Break",
+          "start": "09:30",
+          "end": "10:00",
+          "lesson": false
+        },
+        {
+          "label": "Lesson 3",
+          "start": "10:00",
+          "end": "10:30",
+          "lesson": true
+        },
+        {
+          "label": "Lesson 4",
+          "start": "10:30",
+          "end": "11:00",
+          "lesson": true
+        },
+        {
+          "label": "Break",
+          "start": "11:00",
+          "end": "11:30",
+          "lesson": false
+        },
+        {
+          "label": "Lesson 5",
+          "start": "11:30",
+          "end": "12:00",
+          "lesson": true
+        },
+        {
+          "label": "Lunch",
+          "start": "12:00",
+          "end": "13:00",
+          "lesson": false
+        }
+      ],
+      "lessons": []
     }
   },
-  "_readme_timetable": "Starting timetable per section: bell times (slots) and lessons per week per subject (lessons), from the school's 2026 block timetables. Loaded ONLY into a section with no bell times, and a grade with no lessons-per-week yet — later changes on Timetable → Setup are never overwritten. 'names' = the ways the subject may be spelled in Subjects (the first match is used). 'mustEndBy' = every lesson of that subject ends by this time (Maths before lunch)."
+  "_readme_timetable": "Starting timetable per section: bell times (slots) and lessons per week per subject (lessons), from the school's 2026 block timetables. Loaded ONLY into a section with no bell times, and a grade with no lessons-per-week yet — later changes on Timetable → Setup are never overwritten. 'names' = the ways the subject may be spelled in Subjects (the first match is used). 'mustEndBy' = every lesson of that subject ends by this time (Maths before lunch). Lower Primary comes from the school's Term One 2026 lower timetable. PRE_SCHOOL_example is NOT loaded (Pre-School has no timetable for now); rename the key to PRE_SCHOOL to use it, or set times on Timetable → Setup."
 }
