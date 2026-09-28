@@ -1,0 +1,550 @@
+{
+  "_readme": "Starting values, used ONCE when the settings tables are empty (first start). After that the database is the only source; edit settings on the School Settings page. For a new school, change this file before the first start.",
+  "profile": {
+    "name": "Pipeline Adventist Primary & Junior Secondary School",
+    "shortName": "Pipeline Adventist School",
+    "motto": "Abreast with the Best in Holistic Education",
+    "postalAddress": "P.O. Box 61774-00200, Nairobi",
+    "phones": "0713 301 521, 0721 885 996, 0722 642 169",
+    "email": null,
+    "website": null,
+    "bankName": "Equity Bank",
+    "bankBranch": "Donholm",
+    "bankAccountName": "Pipeline Adventist Primary School",
+    "bankAccountNumber": "0820264845815",
+    "paybillNumber": "505156",
+    "paybillAccountHint": "Pupil's name",
+    "paymentNote": "Cash payment is not allowed."
+  },
+  "sections": [
+    {
+      "code": "PRE_SCHOOL",
+      "name": "Pre-School",
+      "color": "#6f42c1",
+      "meanTarget": 80,
+      "sortOrder": 1,
+      "subjectTeaching": false
+    },
+    {
+      "code": "LOWER_PRIMARY",
+      "name": "Lower Primary",
+      "color": "#2E75B6",
+      "meanTarget": 80,
+      "sortOrder": 2,
+      "subjectTeaching": false
+    },
+    {
+      "code": "UPPER_PRIMARY",
+      "name": "Upper Primary",
+      "color": "#fd7e14",
+      "meanTarget": 70,
+      "sortOrder": 3,
+      "subjectTeaching": true
+    },
+    {
+      "code": "JUNIOR_SCHOOL",
+      "name": "Junior School",
+      "color": "#20c997",
+      "meanTarget": 65,
+      "sortOrder": 4,
+      "subjectTeaching": true
+    }
+  ],
+  "grades": [
+    {
+      "code": "PG",
+      "name": "Play Group",
+      "sectionCode": "PRE_SCHOOL",
+      "sortOrder": 1,
+      "nextGradeCode": "PP1"
+    },
+    {
+      "code": "PP1",
+      "name": "Pre-Primary 1",
+      "sectionCode": "PRE_SCHOOL",
+      "sortOrder": 2,
+      "nextGradeCode": "PP2"
+    },
+    {
+      "code": "PP2",
+      "name": "Pre-Primary 2",
+      "sectionCode": "PRE_SCHOOL",
+      "sortOrder": 3,
+      "nextGradeCode": "G1"
+    },
+    {
+      "code": "G1",
+      "name": "Grade 1",
+      "sectionCode": "LOWER_PRIMARY",
+      "sortOrder": 4,
+      "nextGradeCode": "G2"
+    },
+    {
+      "code": "G2",
+      "name": "Grade 2",
+      "sectionCode": "LOWER_PRIMARY",
+      "sortOrder": 5,
+      "nextGradeCode": "G3"
+    },
+    {
+      "code": "G3",
+      "name": "Grade 3",
+      "sectionCode": "LOWER_PRIMARY",
+      "sortOrder": 6,
+      "nextGradeCode": "G4"
+    },
+    {
+      "code": "G4",
+      "name": "Grade 4",
+      "sectionCode": "UPPER_PRIMARY",
+      "sortOrder": 7,
+      "nextGradeCode": "G5"
+    },
+    {
+      "code": "G5",
+      "name": "Grade 5",
+      "sectionCode": "UPPER_PRIMARY",
+      "sortOrder": 8,
+      "nextGradeCode": "G6"
+    },
+    {
+      "code": "G6",
+      "name": "Grade 6",
+      "sectionCode": "UPPER_PRIMARY",
+      "sortOrder": 9,
+      "nextGradeCode": "G7"
+    },
+    {
+      "code": "G7",
+      "name": "Grade 7",
+      "sectionCode": "JUNIOR_SCHOOL",
+      "sortOrder": 10,
+      "nextGradeCode": "G8"
+    },
+    {
+      "code": "G8",
+      "name": "Grade 8",
+      "sectionCode": "JUNIOR_SCHOOL",
+      "sortOrder": 11,
+      "nextGradeCode": "G9"
+    },
+    {
+      "code": "G9",
+      "name": "Grade 9",
+      "sectionCode": "JUNIOR_SCHOOL",
+      "sortOrder": 12,
+      "nextGradeCode": null
+    }
+  ],
+  "streams": [
+    {
+      "code": "YELLOW",
+      "name": "Yellow",
+      "color": "#ffc107",
+      "sortOrder": 1,
+      "active": true
+    },
+    {
+      "code": "BLUE",
+      "name": "Blue",
+      "color": "#2E75B6",
+      "sortOrder": 2,
+      "active": true
+    },
+    {
+      "code": "RED",
+      "name": "Red",
+      "color": "#dc3545",
+      "sortOrder": 3,
+      "active": true
+    },
+    {
+      "code": "GREEN",
+      "name": "Green",
+      "color": "#28a745",
+      "sortOrder": 4,
+      "active": true
+    }
+  ],
+  "examTypes": [
+    {
+      "code": "OPENING",
+      "name": "Opening",
+      "color": "#28a745",
+      "sortOrder": 1,
+      "core": true,
+      "active": true
+    },
+    {
+      "code": "MID_TERM",
+      "name": "Mid Term",
+      "color": "#e0a800",
+      "sortOrder": 2,
+      "core": true,
+      "active": true
+    },
+    {
+      "code": "END_TERM",
+      "name": "End Term",
+      "color": "#2E75B6",
+      "sortOrder": 3,
+      "core": true,
+      "active": true
+    },
+    {
+      "code": "EXTRA",
+      "name": "Extra Assessment",
+      "color": "#6f42c1",
+      "sortOrder": 4,
+      "core": false,
+      "active": true
+    }
+  ],
+  "moneyGroups": [
+    {
+      "name": "Tuition & Fees",
+      "color": "#1F3864",
+      "feesDefault": true
+    },
+    {
+      "name": "Meals",
+      "color": "#28a745",
+      "charges": [
+        "Lunch",
+        "Porridge",
+        "Meals"
+      ]
+    },
+    {
+      "name": "Transport",
+      "color": "#fd7e14",
+      "transport": true
+    },
+    {
+      "name": "Swimming",
+      "color": "#17a2b8",
+      "charges": [
+        "Swimming"
+      ]
+    },
+    {
+      "name": "Trips",
+      "color": "#6f42c1"
+    },
+    {
+      "name": "Admissions",
+      "color": "#e83e8c",
+      "charges": [
+        "Interview",
+        "Admission"
+      ]
+    },
+    {
+      "name": "General / School running",
+      "color": "#6c757d"
+    }
+  ],
+  "_readme_moneyGroups": "Starting money groups, used ONLY when the money_groups table is empty. Order = payment priority (first is paid first). 'charges' = extra charges (by name) to put in the group at that first start. Edit groups later on Finance → Setup.",
+  "timetable": {
+    "UPPER_PRIMARY": {
+      "slots": [
+        {
+          "label": "Lesson 1",
+          "start": "08:20",
+          "end": "08:55",
+          "lesson": true
+        },
+        {
+          "label": "Lesson 2",
+          "start": "08:55",
+          "end": "09:30",
+          "lesson": true
+        },
+        {
+          "label": "Break",
+          "start": "09:30",
+          "end": "09:50",
+          "lesson": false
+        },
+        {
+          "label": "Lesson 3",
+          "start": "09:50",
+          "end": "10:25",
+          "lesson": true
+        },
+        {
+          "label": "Lesson 4",
+          "start": "10:25",
+          "end": "11:00",
+          "lesson": true
+        },
+        {
+          "label": "Break",
+          "start": "11:00",
+          "end": "11:30",
+          "lesson": false
+        },
+        {
+          "label": "Lesson 5",
+          "start": "11:30",
+          "end": "12:05",
+          "lesson": true
+        },
+        {
+          "label": "Lesson 6",
+          "start": "12:05",
+          "end": "12:40",
+          "lesson": true
+        },
+        {
+          "label": "Lunch",
+          "start": "12:40",
+          "end": "14:00",
+          "lesson": false
+        },
+        {
+          "label": "Lesson 7",
+          "start": "14:00",
+          "end": "14:35",
+          "lesson": true
+        },
+        {
+          "label": "Lesson 8",
+          "start": "14:35",
+          "end": "15:10",
+          "lesson": true
+        },
+        {
+          "label": "Games",
+          "start": "15:10",
+          "end": "16:00",
+          "lesson": false
+        }
+      ],
+      "lessons": [
+        {
+          "names": [
+            "Mathematics",
+            "Maths",
+            "Math"
+          ],
+          "perWeek": 5,
+          "mustEndBy": "12:40"
+        },
+        {
+          "names": [
+            "English"
+          ],
+          "perWeek": 5
+        },
+        {
+          "names": [
+            "Kiswahili",
+            "Kisw"
+          ],
+          "perWeek": 4
+        },
+        {
+          "names": [
+            "Science and Technology",
+            "Science & Technology",
+            "Science & Tech",
+            "Science"
+          ],
+          "perWeek": 4
+        },
+        {
+          "names": [
+            "Social Studies",
+            "S/ST",
+            "SST"
+          ],
+          "perWeek": 3
+        },
+        {
+          "names": [
+            "CRE",
+            "Christian Religious Education",
+            "Religious Education"
+          ],
+          "perWeek": 3
+        },
+        {
+          "names": [
+            "Creative Arts",
+            "Creative Arts and Sports",
+            "C/A"
+          ],
+          "perWeek": 6
+        },
+        {
+          "names": [
+            "Agriculture and Nutrition",
+            "Agriculture & Nutrition",
+            "Agriculture"
+          ],
+          "perWeek": 4
+        },
+        {
+          "names": [
+            "Computer",
+            "Computer Studies",
+            "Computers",
+            "ICT"
+          ],
+          "perWeek": 1
+        }
+      ]
+    },
+    "JUNIOR_SCHOOL": {
+      "slots": [
+        {
+          "label": "Lesson 1",
+          "start": "08:20",
+          "end": "09:00",
+          "lesson": true
+        },
+        {
+          "label": "Lesson 2",
+          "start": "09:00",
+          "end": "09:40",
+          "lesson": true
+        },
+        {
+          "label": "Break",
+          "start": "09:40",
+          "end": "09:50",
+          "lesson": false
+        },
+        {
+          "label": "Lesson 3",
+          "start": "09:50",
+          "end": "10:30",
+          "lesson": true
+        },
+        {
+          "label": "Lesson 4",
+          "start": "10:30",
+          "end": "11:10",
+          "lesson": true
+        },
+        {
+          "label": "Break",
+          "start": "11:10",
+          "end": "11:30",
+          "lesson": false
+        },
+        {
+          "label": "Lesson 5",
+          "start": "11:30",
+          "end": "12:10",
+          "lesson": true
+        },
+        {
+          "label": "Lesson 6",
+          "start": "12:10",
+          "end": "12:50",
+          "lesson": true
+        },
+        {
+          "label": "Lunch",
+          "start": "12:50",
+          "end": "14:00",
+          "lesson": false
+        },
+        {
+          "label": "Lesson 7",
+          "start": "14:00",
+          "end": "14:40",
+          "lesson": true
+        },
+        {
+          "label": "Lesson 8",
+          "start": "14:40",
+          "end": "15:10",
+          "lesson": true
+        },
+        {
+          "label": "Games",
+          "start": "15:10",
+          "end": "16:00",
+          "lesson": false
+        }
+      ],
+      "lessons": [
+        {
+          "names": [
+            "Mathematics",
+            "Maths",
+            "Math"
+          ],
+          "perWeek": 5,
+          "mustEndBy": "12:50"
+        },
+        {
+          "names": [
+            "English"
+          ],
+          "perWeek": 5
+        },
+        {
+          "names": [
+            "Kiswahili",
+            "Kisw"
+          ],
+          "perWeek": 4
+        },
+        {
+          "names": [
+            "Integrated Science",
+            "Science"
+          ],
+          "perWeek": 5
+        },
+        {
+          "names": [
+            "Social Studies",
+            "S/ST",
+            "SST"
+          ],
+          "perWeek": 4
+        },
+        {
+          "names": [
+            "CRE",
+            "Christian Religious Education",
+            "Religious Education"
+          ],
+          "perWeek": 4
+        },
+        {
+          "names": [
+            "Creative Arts and Sports",
+            "Creative Arts & Sports",
+            "Creative Arts",
+            "C/A"
+          ],
+          "perWeek": 5
+        },
+        {
+          "names": [
+            "Agriculture",
+            "Agriculture and Nutrition",
+            "Agriculture & Nutrition"
+          ],
+          "perWeek": 4
+        },
+        {
+          "names": [
+            "Pre-Technical Studies",
+            "Pre-Technical",
+            "Pre Technical Studies",
+            "P/T"
+          ],
+          "perWeek": 4
+        }
+      ]
+    }
+  },
+  "_readme_timetable": "Starting timetable per section: bell times (slots) and lessons per week per subject (lessons), from the school's 2026 block timetables. Loaded ONLY into a section with no bell times, and a grade with no lessons-per-week yet — later changes on Timetable → Setup are never overwritten. 'names' = the ways the subject may be spelled in Subjects (the first match is used). 'mustEndBy' = every lesson of that subject ends by this time (Maths before lunch)."
+}

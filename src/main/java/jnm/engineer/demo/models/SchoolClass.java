@@ -37,13 +37,16 @@ public class SchoolClass {
     @Column(nullable = false)
     private Double meanTarget;
 
-    // ✅ Changed to EAGER so teacher loads with the class — fixes lazy proxy error
+    // The ONE place a class teacher is stored. Logins follow this (see SchoolClassController).
     @JsonIgnoreProperties({"classTeacher", "studentList", "hibernateLazyInitializer", "handler", "subjects"})
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "class_teacher_id")
     private Teacher classTeacher;
 
+    // SAFETY FIX: cascade removed. It used to be CascadeType.ALL, which meant deleting a
+    // class also DELETED every student in it. Classes with students can no longer be
+    // deleted at all (SchoolClassController refuses) — move the students first.
     @JsonIgnore
-    @OneToMany(mappedBy = "schoolClass", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "schoolClass", fetch = FetchType.LAZY)
     private List<Student> studentList = new ArrayList<>();
 }

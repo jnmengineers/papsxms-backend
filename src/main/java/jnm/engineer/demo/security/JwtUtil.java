@@ -2,12 +2,12 @@ package jnm.engineer.demo.security;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import java.security.Key;
+import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
 
 @Component
@@ -19,45 +19,43 @@ public class JwtUtil {
     @Value("${jwt.expiration}")
     private Long expiration;
 
-    private Key getSigningKey() {
-        return Keys.hmacShaKeyFor(secret.getBytes());
+    // UTF-8 explicitly: getBytes() with no charset depends on the server's settings,
+    // so the same secret could produce a different key on a different machine.
+    private SecretKey getSigningKey() {
+        return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }
 
-    // Generate token
     public String generateToken(String username, String role) {
         return Jwts.builder()
                 .subject(username)
-                .claim("role", role)
+                .claim("role", role)          // for the UI only; the server re-reads the role from the database
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + expiration))
                 .signWith(getSigningKey())
                 .compact();
     }
 
-    // Extract username from token
     public String extractUsername(String token) {
         return getClaims(token).getSubject();
     }
 
-    // Extract role from token
     public String extractRole(String token) {
         return getClaims(token).get("role", String.class);
     }
 
-    // Validate token
+    public Date extractIssuedAt(String token) {
+        return getClaims(token).getIssuedAt();
+    }
+
+    // Parsing already rejects expired tokens (throws), so one parse is enough
     public boolean isTokenValid(String token, String username) {
-        return extractUsername(token).equals(username) && !isTokenExpired(token);
+        Claims claims = getClaims(token);
+        return username.equals(claims.getSubject()) && claims.getExpiration().after(new Date());
     }
 
-    // Check if token is expired
-    private boolean isTokenExpired(String token) {
-        return getClaims(token).getExpiration().before(new Date());
-    }
-
-    // Get all claims
     private Claims getClaims(String token) {
         return Jwts.parser()
-                .verifyWith((javax.crypto.SecretKey) getSigningKey())
+                .verifyWith(getSigningKey())
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();

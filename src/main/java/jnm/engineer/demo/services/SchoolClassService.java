@@ -1,14 +1,14 @@
 package jnm.engineer.demo.services;
 
-import jnm.engineer.demo.models.ReportCard;
-import jnm.engineer.demo.models.Result;
 import jnm.engineer.demo.models.SchoolClass;
 import jnm.engineer.demo.models.Student;
 import jnm.engineer.demo.models.User;
 import jnm.engineer.demo.repositories.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -19,12 +19,11 @@ public class SchoolClassService {
     private final SchoolClassRepository schoolClassRepository;
     private final TeacherRepository teacherRepository;
     private final StudentRepository studentRepository;
-    private final ResultRepository resultRepository;
-    private final ReportCardRepository reportCardRepository;
     private final UserRepository userRepository;
     private final ClassSubjectRepository classSubjectRepository;
     private final ExamScheduleRepository examScheduleRepository;
     private final UserService userService;
+    private final SettingsService settingsService;
 
     public List<SchoolClass> getAllSchoolClasses() {
         return schoolClassRepository.findAll();
@@ -44,47 +43,24 @@ public class SchoolClassService {
     }
 
     public SchoolClass create(SchoolClass schoolClass) {
-        // Auto set gradeLevel from className if missing
+        // Fill in what's missing from School Settings: grade from the class name,
+        // section from the grade, mean target from the section.
         if (schoolClass.getGradeLevel() == null || schoolClass.getGradeLevel().isEmpty()) {
-            schoolClass.setGradeLevel(extractGradeFromClassName(schoolClass.getClassName()));
+            String grade = settingsService.gradeFromClassName(schoolClass.getClassName());
+            if (grade == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Choose the grade — \"" + schoolClass.getClassName() + "\" doesn't start with a known grade.");
+            schoolClass.setGradeLevel(grade);
         }
-        // Auto set section from gradeLevel if missing
         if (schoolClass.getSection() == null || schoolClass.getSection().isEmpty()) {
-            schoolClass.setSection(extractSectionFromGrade(schoolClass.getGradeLevel()));
+            String section = settingsService.sectionOfGrade(schoolClass.getGradeLevel());
+            if (section == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Grade " + schoolClass.getGradeLevel() + " isn't set up in School Settings.");
+            schoolClass.setSection(section);
         }
-        // Auto set meanTarget from section if missing
         if (schoolClass.getMeanTarget() == null) {
-            schoolClass.setMeanTarget(extractTargetFromSection(schoolClass.getSection()));
+            schoolClass.setMeanTarget(settingsService.targetOfSection(schoolClass.getSection()));
         }
         return schoolClassRepository.save(schoolClass);
-    }
-
-    private String extractGradeFromClassName(String className) {
-        if (className == null) return "";
-        String name = className.trim().toUpperCase();
-        if (name.startsWith("PP2")) return "PP2";
-        if (name.startsWith("PP1")) return "PP1";
-        if (name.startsWith("PG")) return "PG";
-        java.util.regex.Matcher m = java.util.regex.Pattern
-                .compile("^(G[1-9])([^0-9]|$)")
-                .matcher(name);
-        return m.find() ? m.group(1) : className;
-    }
-
-    private String extractSectionFromGrade(String grade) {
-        if (grade == null) return "LOWER_PRIMARY";
-        if (java.util.Arrays.asList("PG", "PP1", "PP2").contains(grade)) return "PRE_SCHOOL";
-        if (java.util.Arrays.asList("G1", "G2", "G3").contains(grade)) return "LOWER_PRIMARY";
-        if (java.util.Arrays.asList("G4", "G5", "G6").contains(grade)) return "UPPER_PRIMARY";
-        if (java.util.Arrays.asList("G7", "G8", "G9").contains(grade)) return "JUNIOR_SCHOOL";
-        return "LOWER_PRIMARY";
-    }
-
-    private Double extractTargetFromSection(String section) {
-        if (section == null) return 80.0;
-        if (section.equals("UPPER_PRIMARY")) return 70.0;
-        if (section.equals("JUNIOR_SCHOOL")) return 65.0;
-        return 80.0;
     }
 
     @Transactional
@@ -97,8 +73,7 @@ public class SchoolClassService {
         existing.setMeanTarget(updated.getMeanTarget());
         SchoolClass saved = schoolClassRepository.save(existing);
 
-        // ✅ Cascade — update denormalized className and stream on all students
-        // so they still appear correctly after a class rename
+        // Keep the copies of className and stream on each student up to date
         List<Student> students = studentRepository.findBySchoolClassClassId(id);
         students.forEach(student -> {
             student.setClassName(saved.getClassName());
@@ -109,67 +84,55 @@ public class SchoolClassService {
         return saved;
     }
 
-    public SchoolClass assignClassTeacher(Long classId, Long teacherId) {
+    /** The class after assigning, plus the teacher's login details if a NEW login was created. */
+    public record ClassTeacherResult(SchoolClass schoolClass, String username, String temporaryPassword) {}
+
+    @Transactional
+    public ClassTeacherResult assignClassTeacher(Long classId, Long teacherId) {
         SchoolClass schoolClass = getById(classId);
         jnm.engineer.demo.models.Teacher teacher = teacherRepository.findById(teacherId)
                 .orElseThrow(() -> new RuntimeException("Teacher not found"));
         schoolClass.setClassTeacher(teacher);
         SchoolClass saved = schoolClassRepository.save(schoolClass);
 
-        // ✅ Auto-create or update the teacher's login account, linked to this class.
-        // Username = teacher's phone number, default password = phone number (must change on first login).
-        userService.createOrUpdateTeacherUser(teacher, saved);
+        // Auto-create or update the teacher's login, linked to this class.
+        // A NEW login gets a random temporary password (no longer the phone number),
+        // returned here so the admin can see it once and pass it on privately.
+        UserService.TeacherLogin login = userService.createOrUpdateTeacherUser(teacher, saved);
 
-        return saved;
+        return new ClassTeacherResult(saved, login.user().getUsername(), login.temporaryPassword());
     }
 
-    // ✅ New — unassign the class teacher (sets classTeacher to null)
     public SchoolClass unassignClassTeacher(Long classId) {
         SchoolClass schoolClass = getById(classId);
         schoolClass.setClassTeacher(null);
         return schoolClassRepository.save(schoolClass);
     }
 
+    /**
+     * Deletes an EMPTY class.
+     * SAFETY: this used to delete every mark and report card of every learner in the class.
+     * Now a class that still has learners is refused — move them to another class first.
+     */
     @Transactional
     public void delete(Long id) {
         getById(id);
+        if (!studentRepository.findBySchoolClassClassId(id).isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "This class still has learners. Move them to another class first.");
+        }
 
-        // Step 1 — Remove linkedClass from any users
+        // Logins that pointed at this class no longer do
         List<User> linkedUsers = userRepository.findByLinkedClassClassId(id);
         linkedUsers.forEach(user -> {
             user.setLinkedClass(null);
             userRepository.save(user);
         });
 
-        // Step 2 — Delete class subjects
-        List<jnm.engineer.demo.models.ClassSubject> classSubjects =
-                classSubjectRepository.findBySchoolClassClassId(id);
-        classSubjectRepository.deleteAll(classSubjects);
+        // The class's subject list and exam timetable go with it
+        classSubjectRepository.deleteAll(classSubjectRepository.findBySchoolClassClassId(id));
+        examScheduleRepository.deleteAll(examScheduleRepository.findBySchoolClassClassId(id));
 
-        // Step 3 — Delete exam schedules
-        List<jnm.engineer.demo.models.ExamSchedule> examSchedules =
-                examScheduleRepository.findBySchoolClassClassId(id);
-        examScheduleRepository.deleteAll(examSchedules);
-
-        // Step 4 — Get all students in this class
-        List<Student> students = studentRepository.findBySchoolClassClassId(id);
-
-        // Step 5 — For each student delete results and report cards
-        for (Student student : students) {
-            Long studentId = student.getStudentId();
-            List<ReportCard> reportCards = reportCardRepository.findByStudentStudentId(studentId);
-            reportCardRepository.deleteAll(reportCards);
-            List<Result> results = resultRepository.findByStudentStudentId(studentId);
-            resultRepository.deleteAll(results);
-        }
-
-        // Step 6 — Remove class reference from all students
-        students.forEach(student -> {
-            student.setSchoolClass(null);
-            studentRepository.save(student);
-        });
-
-        // Step 7 — Delete the class
         schoolClassRepository.deleteById(id);
     }
 }

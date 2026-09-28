@@ -3,9 +3,11 @@ package jnm.engineer.demo.services;
 import jnm.engineer.demo.models.SchoolClass;
 import jnm.engineer.demo.models.Subject;
 import jnm.engineer.demo.models.Teacher;
+import jnm.engineer.demo.models.User;
 import jnm.engineer.demo.repositories.SchoolClassRepository;
 import jnm.engineer.demo.repositories.SubjectRepository;
 import jnm.engineer.demo.repositories.TeacherRepository;
+import jnm.engineer.demo.repositories.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,25 +21,26 @@ public class TeacherServices {
     private final TeacherRepository teacherRepository;
     private final SubjectRepository subjectRepository;
     private final SchoolClassRepository schoolClassRepository;
+    private final UserRepository userRepository;
 
-    public List<Teacher> getAllTeachers(){
+    public List<Teacher> getAllTeachers() {
         return teacherRepository.findAll();
     }
 
-    public Teacher getById(Long id){
+    public Teacher getById(Long id) {
         return teacherRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Teacher not found with id: " + id));
     }
 
-    public List<Teacher> searchByName(String name){
+    public List<Teacher> searchByName(String name) {
         return teacherRepository.findByFirstNameContainingIgnoreCaseOrLastNameContainingIgnoreCase(name, name);
     }
 
-    public Teacher create(Teacher teacher){
+    public Teacher create(Teacher teacher) {
         return teacherRepository.save(teacher);
     }
 
-    public Teacher update(Long id, Teacher updated){
+    public Teacher update(Long id, Teacher updated) {
         Teacher existing = getById(id);
         existing.setFirstName(updated.getFirstName());
         existing.setLastName(updated.getLastName());
@@ -47,7 +50,7 @@ public class TeacherServices {
     }
 
     @Transactional
-    public void delete(Long id){
+    public void delete(Long id) {
         getById(id);
 
         // Remove teacher from all subjects
@@ -64,6 +67,18 @@ public class TeacherServices {
             schoolClassRepository.save(cls);
         });
 
+        // NEW: unlink any login that belongs to this teacher (the login itself stays;
+        // delete it on the Users page if it's no longer needed)
+        for (User u : userRepository.findAll()) {
+            if (u.getTeacher() != null && id.equals(u.getTeacher().getTeacherId())) {
+                u.setTeacher(null);
+                u.setLinkedId(null);
+                u.setLinkedClass(null);
+                userRepository.save(u);
+            }
+        }
+
+        // Subject-teacher assignments are removed by the database (ON DELETE CASCADE)
         teacherRepository.deleteById(id);
     }
 }

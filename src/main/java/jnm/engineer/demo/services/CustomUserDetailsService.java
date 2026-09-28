@@ -1,4 +1,4 @@
-package jnm.engineer.demo.security;
+package jnm.engineer.demo.services;
 
 import jnm.engineer.demo.models.User;
 import jnm.engineer.demo.repositories.UserRepository;
