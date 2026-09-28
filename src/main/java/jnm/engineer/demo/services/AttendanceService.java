@@ -82,6 +82,56 @@ public class AttendanceService {
     }
 
     /** Per-learner totals and % for a date range. Late counts as attended. */
+    /**
+     * The daily school attendance record: for every class on one day, boys and girls present,
+     * absent and in total. Late counts as present; excused counts as absent. A class whose
+     * register was not taken that day is marked taken = false (its sheet row is left blank).
+     * Counts only — no names — so any teacher (e.g. the teacher on duty) may print it.
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> schoolDay(LocalDate date) {
+        Map<Long, int[]> enrolled = new HashMap<>();   // classId → [boys, girls, not set]
+        for (Student s : studentService.getAllStudents()) {
+            if (s.getSchoolClass() == null) continue;
+            enrolled.computeIfAbsent(s.getSchoolClass().getClassId(), k -> new int[3])[genderIndex(s)]++;
+        }
+        Map<Long, int[]> day = new HashMap<>();        // classId → [presentB, presentG, presentX, absentB, absentG, absentX]
+        for (AttendanceRecord r : repository.findByDate(date)) {
+            int g = genderIndex(r.getStudent());
+            boolean present = r.getStatus() == AttendanceRecord.Status.PRESENT || r.getStatus() == AttendanceRecord.Status.LATE;
+            day.computeIfAbsent(r.getSchoolClass().getClassId(), k -> new int[6])[(present ? 0 : 3) + g]++;
+        }
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (SchoolClass c : entityManager.createQuery("select c from SchoolClass c", SchoolClass.class).getResultList()) {
+            int[] e = enrolled.getOrDefault(c.getClassId(), new int[3]);
+            int[] d = day.get(c.getClassId());
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("classId", c.getClassId());
+            m.put("className", c.getClassName());
+            m.put("stream", c.getStream());
+            m.put("gradeLevel", c.getGradeLevel());
+            m.put("taken", d != null);
+            m.put("enrolledBoys", e[0]);
+            m.put("enrolledGirls", e[1]);
+            m.put("genderNotSet", e[2]);
+            if (d != null) {
+                m.put("presentBoys", d[0]);
+                m.put("presentGirls", d[1]);
+                m.put("absentBoys", d[3]);
+                m.put("absentGirls", d[4]);
+                m.put("notMarked", Math.max(0, e[0] + e[1] + e[2] - (d[0] + d[1] + d[2] + d[3] + d[4] + d[5])));
+            }
+            rows.add(m);
+        }
+        return Map.of("date", date.toString(), "classes", rows);
+    }
+
+    /** 0 = boy, 1 = girl, 2 = not set ("Male"/"M…" and "Female"/"F…", any case). */
+    private static int genderIndex(Student s) {
+        String g = s == null ? "" : String.valueOf(s.getGender()).trim().toLowerCase();
+        return g.startsWith("m") ? 0 : g.startsWith("f") ? 1 : 2;
+    }
+
     @Transactional(readOnly = true)
     public Map<String, Object> summary(Long classId, LocalDate from, LocalDate to) {
         if (from.isAfter(to)) throw bad("The start date must be before the end date.");

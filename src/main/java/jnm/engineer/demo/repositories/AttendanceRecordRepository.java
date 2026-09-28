@@ -10,6 +10,9 @@ public interface AttendanceRecordRepository extends JpaRepository<AttendanceReco
 
     List<AttendanceRecord> findBySchoolClassClassIdAndDate(Long classId, LocalDate date);
 
+    /** Every class's register for one day (for the daily school attendance record). */
+    List<AttendanceRecord> findByDate(LocalDate date);
+
     List<AttendanceRecord> findBySchoolClassClassIdAndDateBetween(Long classId, LocalDate from, LocalDate to);
 
     List<AttendanceRecord> findByStudentStudentIdAndDateBetweenOrderByDateDesc(Long studentId, LocalDate from, LocalDate to);

@@ -179,6 +179,7 @@ public class TimetableService {
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("subjectId", s.getSubjectId());
             m.put("subjectName", s.getSubjectName());
+            m.put("subjectCode", s.getSubjectCode());
             SubjectLesson rule = rules.get(s.getSubjectId());
             m.put("lessons", rule != null ? rule.getLessonsPerWeek() : 0);
             m.put("latestEnd", rule != null && rule.getLatestEnd() != null ? rule.getLatestEnd().toString() : null);
@@ -332,7 +333,9 @@ public class TimetableService {
             m.put("classId", e.getSchoolClass().getClassId());
             m.put("className", e.getSchoolClass().getClassName());
             m.put("stream", e.getSchoolClass().getStream());
+            m.put("section", e.getSchoolClass().getSection());
             m.put("subjectName", e.getSubject().getSubjectName());
+            m.put("subjectCode", e.getSubject().getSubjectCode());
             lessons.add(m);
         }
         lessons.sort(Comparator.comparing((Map<String, Object> m) -> (Integer) m.get("day")).thenComparing(m -> String.valueOf(m.get("start"))));
@@ -455,6 +458,7 @@ public class TimetableService {
         m.put("slotId", e.getSlot().getSlotId());
         m.put("subjectId", e.getSubject().getSubjectId());
         m.put("subjectName", e.getSubject().getSubjectName());
+        m.put("subjectCode", e.getSubject().getSubjectCode());
         m.put("teacherId", e.getTeacher() != null ? e.getTeacher().getTeacherId() : null);
         m.put("teacherName", teacherName(e.getTeacher()));
         return m;

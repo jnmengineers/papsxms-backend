@@ -33,6 +33,12 @@ public class AttendanceController {
         }
     }
 
+    /** Daily school attendance record: boys/girls present, absent and total for every class (counts only). */
+    @GetMapping("/school-day/{date}")
+    public ResponseEntity<Map<String, Object>> schoolDay(@PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        return ResponseEntity.ok(attendanceService.schoolDay(date));
+    }
+
     @GetMapping("/class/{classId}/date/{date}")
     public ResponseEntity<List<Map<String, Object>>> getDay(@PathVariable Long classId,
                                                             @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
