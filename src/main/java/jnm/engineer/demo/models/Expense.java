@@ -59,6 +59,36 @@ public class Expense {
     @Column(length = 50) private String recordedBy;
     @Column(nullable = false) private LocalDateTime recordedAt;
 
+    /**
+     * Treasurer approval: APPROVED, PENDING (awaiting the treasurer) or REJECTED.
+     * Empty = APPROVED (bills recorded before approval existed). Only approved bills count in the books.
+     */
+    @Column(length = 10) private String approvalStatus;
+    @Column(length = 50) private String approvedBy;
+    private LocalDateTime approvedAt;
+    @Column(length = 200) private String rejectReason;
+
+    /**
+     * Paid yet? false = approved bill waiting for the treasurer's cheque. Empty = paid
+     * (everything recorded before bills and cheques existed was recorded as already paid).
+     */
+    @Column private Boolean paid;
+    private LocalDate paidOn;
+    private Long chequeId;                      // the cheque that paid it
+
+    /** Confirmed on a bank statement (Finance → Bank Reconciliation). Empty = not confirmed yet. */
+    private LocalDate bankConfirmedOn;     // the date on the bank statement
+    @Column(length = 200) private String bankLine;    // the statement line it was matched to
+    @Column(length = 50) private String bankConfirmedBy;
+    private LocalDateTime bankConfirmedAt;
+    /** Paid from the school's M-Pesa line (the float): lowers the float balance. */
+    @Column private Boolean fromFloat;
+
+    public boolean isPaidOut() { return !Boolean.FALSE.equals(paid); }
+
+    /** Counts in totals and reports: approved, PAID and not voided. */
+    public boolean counts() { return !voided && (approvalStatus == null || "APPROVED".equals(approvalStatus)) && isPaidOut(); }
+
     @Column(nullable = false) private boolean voided = false;
     @Column(length = 200) private String voidReason;
     @Column(length = 50) private String voidedBy;

@@ -163,12 +163,9 @@ public class TimetableService {
     public Map<String, Object> classView(Long classId) {
         SchoolClass cls = schoolClassRepository.findById(classId).orElseThrow(() -> notFound("Class not found."));
         String section = cls.getSection();
-        boolean subjectTeaching = section != null && sectionSettingRepository.findById(section)
-                .map(s -> Boolean.TRUE.equals(s.getSubjectTeaching())).orElse(false);
+        boolean subjectTeaching = subjectTeaching(cls);
         Teacher classTeacher = cls.getClassTeacher();
-
-        Map<Long, Teacher> assigned = new HashMap<>();
-        for (TeachingAssignment a : teachingAssignmentRepository.findBySchoolClassClassId(classId)) assigned.put(a.getSubject().getSubjectId(), a.getTeacher());
+        Map<Long, Teacher> assigned = assignedIn(classId);
         Map<Long, SubjectLesson> rules = rulesFor(cls);
         List<Map<String, Object>> subjects = new ArrayList<>();
         Set<Long> seen = new HashSet<>();
@@ -221,7 +218,8 @@ public class TimetableService {
 
         List<EntryIn> list = in == null ? List.of() : in;
         Set<String> used = new HashSet<>();
-        Map<Long, Teacher> teachers = new HashMap<>();
+        Map<Long, Teacher> assigned = assignedIn(classId);
+        boolean classTaught = !subjectTeaching(cls);
         List<TimetableEntry> fresh = new ArrayList<>();
         for (EntryIn e : list) {
             if (e.day() == null || e.day() < 1 || e.day() > DAYS) throw bad("A lesson has a day outside Monday–Friday.");
@@ -231,11 +229,9 @@ public class TimetableService {
             if (!used.add(e.day() + ":" + e.slotId())) throw bad("Two lessons are in the same period on " + DAY_NAMES[e.day()] + ".");
             Subject subject = classSubjects.get(e.subjectId());
             if (subject == null) throw bad("A subject is not on " + cls.getClassName() + "'s subject list — refresh the page.");
-            Teacher t = null;
-            if (e.teacherId() != null) {
-                t = teachers.computeIfAbsent(e.teacherId(), id -> teacherRepository.findById(id).orElse(null));
-                if (t == null) throw bad("A teacher no longer exists — refresh the page.");
-            }
+            // The teacher is whoever is allocated to this subject in this class NOW (teaching assignment,
+            // or the class teacher in class-taught sections) — not whatever the screen had loaded.
+            Teacher t = teacherFor(cls, subject.getSubjectId(), assigned, classTaught);
             TimetableEntry te = new TimetableEntry();
             te.setSchoolClass(cls);
             te.setDayOfWeek(e.day());
@@ -309,6 +305,7 @@ public class TimetableService {
             if (excludeClassId != null && e.getSchoolClass().getClassId().equals(excludeClassId)) continue;
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("teacherId", e.getTeacher().getTeacherId());
+            m.put("classId", e.getSchoolClass().getClassId());   // lets "Auto-fill all" tell classes apart
             m.put("day", e.getDayOfWeek());
             m.put("start", e.getSlot().getStartTime().toString());
             m.put("end", e.getSlot().getEndTime().toString());
@@ -357,7 +354,14 @@ public class TimetableService {
      * grade that has none. Never changes anything already set. Returns what it did, for the log.
      */
     @Transactional
-    public List<String> seedDefaults(Defaults d) {
+    public List<String> seedDefaults(Defaults d) { return seedDefaults(d, false); }
+
+    /**
+     * fillMissing = true: also add subjects that are still missing in grades that already have
+     * some numbers (never changes a number already set). Run once, see TimetableSeeder.
+     */
+    @Transactional
+    public List<String> seedDefaults(Defaults d, boolean fillMissing) {
         List<String> log = new ArrayList<>();
         if (d == null || d.timetable() == null) return log;
         List<String> sections = settingsService.sectionCodes();
@@ -384,31 +388,39 @@ public class TimetableService {
 
             // Lessons per week, per grade of the section
             if (seed.lessons() == null || seed.lessons().isEmpty()) continue;
-            List<Subject> subjects = subjectRepository.findAll().stream()
+            // Section subjects (by the grade saved on the subject) — the grade's own class subjects are added per grade below
+            List<Subject> sectionSubjects = subjectRepository.findAll().stream()
                     .filter(s -> section.equals(settingsService.sectionOfGrade(s.getGradeLevel() == null ? "" : s.getGradeLevel()))).toList();
-            List<String> unmatched = new ArrayList<>();
-            Map<LessonSeed, Subject> match = new LinkedHashMap<>();
-            for (LessonSeed l : seed.lessons()) {
-                Subject found = null;
-                for (String n : l.names() == null ? List.<String>of() : l.names()) {
-                    found = subjects.stream().filter(s -> simple(s.getSubjectName()).equals(simple(n))).findFirst().orElse(null);
-                    if (found != null) break;
-                }
-                if (found != null) match.put(l, found);
-                else if (l.names() != null && !l.names().isEmpty()) unmatched.add(l.names().get(0));
-            }
+            Set<String> unmatched = new LinkedHashSet<>();
             for (GradeLevelSetting g : gradeRepository.findAll()) {
-                if (!section.equals(g.getSectionCode()) || !lessonRepository.findByGradeLevel(g.getCode()).isEmpty()) continue;
-                for (Map.Entry<LessonSeed, Subject> m : match.entrySet()) {
+                if (!section.equals(g.getSectionCode())) continue;
+                List<SubjectLesson> existing = lessonRepository.findByGradeLevel(g.getCode());
+                if (!fillMissing && !existing.isEmpty()) continue;           // normal start: only grades with nothing set
+                Set<Long> have = new HashSet<>();
+                existing.forEach(x -> have.add(x.getSubject().getSubjectId()));
+                // Subjects this grade's classes actually take (shared subjects like English, Maths, CRE…) come first
+                List<Subject> candidates = new ArrayList<>(subjectsTakenBy(g.getCode()));
+                sectionSubjects.forEach(x -> { if (candidates.stream().noneMatch(c -> c.getSubjectId().equals(x.getSubjectId()))) candidates.add(x); });
+                int added = 0;
+                for (LessonSeed l : seed.lessons()) {
+                    Subject found = null;
+                    for (String n : l.names() == null ? List.<String>of() : l.names()) {
+                        found = candidates.stream().filter(x -> simple(x.getSubjectName()).equals(simple(n))).findFirst().orElse(null);
+                        if (found != null) break;
+                    }
+                    if (found == null) { if (l.names() != null && !l.names().isEmpty()) unmatched.add(l.names().get(0)); continue; }
+                    if (have.contains(found.getSubjectId())) continue;       // never change what the admin set
                     SubjectLesson row = new SubjectLesson();
                     row.setGradeLevel(g.getCode());
-                    row.setSubject(m.getValue());
-                    row.setLessonsPerWeek(m.getKey().perWeek() == null ? 0 : m.getKey().perWeek());
-                    row.setLatestEnd(m.getKey().mustEndBy() == null || m.getKey().mustEndBy().isBlank() ? null : time(m.getKey().mustEndBy(), "mustEndBy"));
-                    row.setDoublesAllowed(Boolean.TRUE.equals(m.getKey().doubles()));
+                    row.setSubject(found);
+                    row.setLessonsPerWeek(l.perWeek() == null ? 0 : l.perWeek());
+                    row.setLatestEnd(l.mustEndBy() == null || l.mustEndBy().isBlank() ? null : time(l.mustEndBy(), "mustEndBy"));
+                    row.setDoublesAllowed(Boolean.TRUE.equals(l.doubles()));
                     lessonRepository.save(row);
+                    have.add(found.getSubjectId());
+                    added++;
                 }
-                if (!match.isEmpty()) log.add(g.getCode() + ": lessons per week set for " + match.size() + " subject(s)");
+                if (added > 0) log.add(g.getCode() + ": lessons per week set for " + added + " subject(s)");
             }
             if (!unmatched.isEmpty()) log.add(settingsService.sectionName(section) + ": no subject found for " + String.join(", ", unmatched)
                     + " — set these on Timetable → Setup");
@@ -416,9 +428,87 @@ public class TimetableService {
         return log;
     }
 
+    /** Every subject taken by the classes of a grade (from Class Subjects). */
+    private List<Subject> subjectsTakenBy(String grade) {
+        Map<Long, Subject> out = new LinkedHashMap<>();
+        for (SchoolClass c : schoolClassRepository.findAll()) {
+            String g = c.getGradeLevel() == null ? "" : c.getGradeLevel().trim().toUpperCase();
+            if (!g.equals(grade)) continue;
+            classSubjectRepository.findBySchoolClassClassId(c.getClassId()).forEach(cs -> { if (cs.getSubject() != null) out.putIfAbsent(cs.getSubject().getSubjectId(), cs.getSubject()); });
+        }
+        return new ArrayList<>(out.values());
+    }
+
     /** "Science & Tech." → "sciencetech": letters and digits only, lower case, "and" and "&" ignored. */
     private static String simple(String v) {
         return String.valueOf(v == null ? "" : v).toLowerCase().replace("&", " ").replaceAll("\\band\\b", " ").replaceAll("[^a-z0-9]", "");
+    }
+
+    // ══ Keep every lesson's teacher = the current allocation ════════════════
+    /**
+     * Sets each lesson's teacher to whoever is allocated NOW: the teaching assignment for that
+     * class and subject, or — in class-taught sections (e.g. Lower Primary) — the class teacher.
+     * Called when allocations or class teachers change, on every start, and by the
+     * "Update teachers" button. classId null = every class. Also reports any teacher who is now
+     * booked in two places at once (they show in red on the class timetable).
+     */
+    @Transactional
+    public Map<String, Object> syncTeachers(Long classId) {
+        List<SchoolClass> classes = classId == null ? schoolClassRepository.findAll()
+                : schoolClassRepository.findById(classId).map(List::of).orElse(List.of());
+        int changed = 0;
+        for (SchoolClass cls : classes) {
+            Map<Long, Teacher> assigned = assignedIn(cls.getClassId());
+            boolean classTaught = !subjectTeaching(cls);
+            for (TimetableEntry e : entryRepository.findBySchoolClassClassId(cls.getClassId())) {
+                Teacher want = teacherFor(cls, e.getSubject().getSubjectId(), assigned, classTaught);
+                Long now = e.getTeacher() != null ? e.getTeacher().getTeacherId() : null;
+                Long next = want != null ? want.getTeacherId() : null;
+                if (!Objects.equals(now, next)) { e.setTeacher(want); entryRepository.save(e); changed++; }
+            }
+        }
+        // Double bookings anywhere in the school (by clock time)
+        List<String> clashes = new ArrayList<>();
+        List<TimetableEntry> all = entryRepository.findByTeacherIsNotNull();
+        for (int i = 0; i < all.size(); i++) {
+            for (int j = i + 1; j < all.size(); j++) {
+                TimetableEntry a = all.get(i), b = all.get(j);
+                if (!a.getTeacher().getTeacherId().equals(b.getTeacher().getTeacherId()) || !a.getDayOfWeek().equals(b.getDayOfWeek())) continue;
+                if (a.getSchoolClass().getClassId().equals(b.getSchoolClass().getClassId())) continue;
+                if (overlaps(a.getSlot().getStartTime(), a.getSlot().getEndTime(), b.getSlot().getStartTime(), b.getSlot().getEndTime()) && clashes.size() < 20) {
+                    clashes.add(teacherName(a.getTeacher()) + ": " + DAY_NAMES[a.getDayOfWeek()] + " " + a.getSlot().getStartTime()
+                            + " " + a.getSchoolClass().getClassName() + " and " + b.getSlot().getStartTime() + " " + b.getSchoolClass().getClassName());
+                }
+            }
+        }
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("changed", changed);
+        out.put("clashes", clashes);
+        out.put("message", (changed == 0 ? "Every lesson already has its allocated teacher." : changed + " lesson(s) updated to the allocated teacher.")
+                + (clashes.isEmpty() ? "" : " " + clashes.size() + " double booking(s) to fix — they show in red on the class timetables."));
+        return out;
+    }
+
+    /** Teaching assignments of a class: subjectId → teacher. */
+    private Map<Long, Teacher> assignedIn(Long classId) {
+        Map<Long, Teacher> m = new HashMap<>();
+        for (TeachingAssignment a : teachingAssignmentRepository.findBySchoolClassClassId(classId)) {
+            if (a.getSubject() != null) m.put(a.getSubject().getSubjectId(), a.getTeacher());
+        }
+        return m;
+    }
+
+    /** Subject-taught section (e.g. Upper Primary, Junior)? Otherwise the class teacher teaches everything. */
+    private boolean subjectTeaching(SchoolClass cls) {
+        return cls.getSection() != null && sectionSettingRepository.findById(cls.getSection())
+                .map(s -> Boolean.TRUE.equals(s.getSubjectTeaching())).orElse(false);
+    }
+
+    /** Who teaches this subject in this class now. */
+    private static Teacher teacherFor(SchoolClass cls, Long subjectId, Map<Long, Teacher> assigned, boolean classTaught) {
+        Teacher t = assigned.get(subjectId);
+        if (t != null) return t;
+        return classTaught ? cls.getClassTeacher() : null;
     }
 
     // ══ helpers ═════════════════════════════════════════════════════════════

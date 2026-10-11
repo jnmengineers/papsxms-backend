@@ -22,8 +22,35 @@ import java.time.LocalDateTime;
 public class User {
 
     public enum Role {
-        ADMIN, TEACHER, CLERK, ACCOUNTANT   // ACCOUNTANT = bursar (finance only)
+        ADMIN, TEACHER, CLERK, ACCOUNTANT,   // ACCOUNTANT = bursar (prepares finance)
+        TREASURER,                           // head of the bursar: everything the bursar can do + approves bills
+        CHAIRPERSON,                         // oversees the school: can view everything, change nothing
+        SUPER_ADMIN,                         // everything an admin can do + ticks which roles each user has
+        HEAD_TEACHER                         // approves staff leave; sees the staff register and leave (no editing)
     }
+
+    /**
+     * More roles ticked for this person by the super admin, as a comma list (e.g. "TREASURER,TEACHER").
+     * The main `role` above decides what they see first; these add permissions.
+     */
+    @Column(length = 200)
+    private String extraRoles;
+
+    /** Every role this person effectively has: main + extra, plus what each implies. */
+    public java.util.Set<Role> effectiveRoles() {
+        java.util.Set<Role> out = java.util.EnumSet.noneOf(Role.class);
+        if (role != null) out.add(role);
+        if (extraRoles != null) {
+            for (String r : extraRoles.split(",")) {
+                try { if (!r.isBlank()) out.add(Role.valueOf(r.trim().toUpperCase())); } catch (IllegalArgumentException ignored) { /* old value */ }
+            }
+        }
+        if (out.contains(Role.SUPER_ADMIN)) out.add(Role.ADMIN);          // a super admin is also an admin
+        if (out.contains(Role.TREASURER)) out.add(Role.ACCOUNTANT);       // the treasurer can do the bursar's work
+        return out;
+    }
+
+    public boolean hasRole(Role r) { return effectiveRoles().contains(r); }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

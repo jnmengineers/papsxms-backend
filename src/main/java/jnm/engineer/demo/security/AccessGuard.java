@@ -25,6 +25,7 @@ import java.util.*;
  * One place that answers "may the logged-in user see / change this class's data?"
  *
  *   ADMIN, CLERK ..... every class
+ *   CHAIRPERSON ...... every class, read only (SecurityConfig refuses every change)
  *   TEACHER .......... read:  their own class(es) + classes they teach a subject in
  *                      write: every subject in their own class(es),
  *                             only their own subject in other classes
@@ -106,7 +107,9 @@ public class AccessGuard {
         for (GrantedAuthority a : auth.getAuthorities()) roles.add(a.getAuthority());
         // Admin, clerk (secretary) and accountant (bursar) see every class. What each may CHANGE
         // is limited by SecurityConfig (e.g. the accountant can't change marks or students).
-        if (roles.contains("ROLE_ADMIN") || roles.contains("ROLE_CLERK") || roles.contains("ROLE_ACCOUNTANT")) {
+        // The chairperson oversees the school: every class for READING. Every change is already refused
+        // for the chairperson by SecurityConfig (results, attendance, students, marks… name their roles).
+        if (roles.contains("ROLE_ADMIN") || roles.contains("ROLE_CLERK") || roles.contains("ROLE_ACCOUNTANT") || roles.contains("ROLE_CHAIRPERSON")) {
             return new Scope(true, Set.of(), Set.of(), Map.of(), Set.of(), Map.of());
         }
         if (!roles.contains("ROLE_TEACHER")) {

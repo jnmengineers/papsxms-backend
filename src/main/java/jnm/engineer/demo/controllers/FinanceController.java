@@ -74,6 +74,18 @@ public class FinanceController {
         return ResponseEntity.status(HttpStatus.CREATED).body(financeService.recordPayment(in, who(me)));
     }
 
+    /** One M-Pesa/bank payment shared by several children (siblings). */
+    @PostMapping("/payments/split")
+    public ResponseEntity<Map<String, Object>> recordSplit(@RequestBody FinanceService.SplitIn in, @AuthenticationPrincipal UserDetails me) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(financeService.recordSplitPayment(in, me != null ? me.getUsername() : null));
+    }
+
+    /** What is already recorded under a code. */
+    @GetMapping("/payments/code")
+    public ResponseEntity<Map<String, Object>> codeInfo(@RequestParam String reference) {
+        return ResponseEntity.ok(financeService.codeInfo(reference));
+    }
+
     @PostMapping("/payments/{id}/reverse")
     public ResponseEntity<Map<String, Object>> reverse(@PathVariable Long id, @RequestBody FinanceService.ReverseIn in,
                                                        @AuthenticationPrincipal UserDetails me) {

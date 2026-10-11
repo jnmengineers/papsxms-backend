@@ -30,6 +30,7 @@ public class TeachingAssignmentService {
     private final UserRepository userRepository;
     private final SchoolClassRepository schoolClassRepository;
     private final MarkEntryCoverRepository coverRepository;
+    private final TimetableService timetableService;   // lessons follow the allocation
 
     @Transactional(readOnly = true)
     public List<TeachingAssignment> getAll() { return repository.findAll(); }
@@ -133,12 +134,16 @@ public class TeachingAssignmentService {
         a.setSchoolClass(schoolClass);
         a.setSubject(subject);
         a.setTeacher(teacher);
-        return repository.save(a);
+        TeachingAssignment saved = repository.save(a);
+        timetableService.syncTeachers(classId);   // the timetable now shows this teacher for the subject
+        return saved;
     }
 
     @Transactional
     public void remove(Long classId, Long subjectId) {
         repository.findBySchoolClassClassIdAndSubjectSubjectId(classId, subjectId).ifPresent(repository::delete);
+        repository.flush();
+        timetableService.syncTeachers(classId);
     }
 
     private <T> T find(Class<T> type, Long id, String label) {

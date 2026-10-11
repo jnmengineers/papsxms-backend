@@ -6,7 +6,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jnm.engineer.demo.models.User;
 import jnm.engineer.demo.repositories.UserRepository;
-import jnm.engineer.demo.services.CustomUserDetailsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;

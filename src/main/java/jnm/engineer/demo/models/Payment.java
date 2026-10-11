@@ -71,4 +71,18 @@ public class Payment {
     private String reversedBy;
 
     private LocalDateTime reversedAt;
+
+    /**
+     * One M-Pesa/bank payment shared by several children (e.g. siblings): the FULL amount on the
+     * M-Pesa message / bank slip. Every payment with this code carries it; their amounts must not
+     * add up to more. Empty = the code is this payment alone.
+     */
+    @Column(precision = 12, scale = 2)
+    private BigDecimal codeTotal;
+
+    /** Confirmed on a bank statement (Finance → Bank Reconciliation). Empty = not confirmed yet. */
+    private LocalDate bankConfirmedOn;     // the date on the bank statement
+    @Column(length = 200) private String bankLine;    // the statement line it was matched to
+    @Column(length = 50) private String bankConfirmedBy;
+    private LocalDateTime bankConfirmedAt;
 }

@@ -54,7 +54,11 @@ public class FinanceService {
     // ── Inputs (used directly as request bodies by FinanceController) ──
     public record ItemIn(String name, BigDecimal amount) {}
     public record StructureIn(String section, String yearLabel, Integer term, List<ItemIn> items) {}
-    public record PaymentIn(Long studentId, BigDecimal amount, String method, String reference, String payerName, LocalDate paidOn) {}
+    /** sharedTotal: when ONE M-Pesa/bank payment covers several children — the full amount on the message. */
+    public record PaymentIn(Long studentId, BigDecimal amount, String method, String reference, String payerName, LocalDate paidOn, BigDecimal sharedTotal) {}
+    public record SplitPart(Long studentId, BigDecimal amount) {}
+    /** One M-Pesa/bank payment for several children at once (one code, one total, a part per child). */
+    public record SplitIn(String method, String reference, String payerName, LocalDate paidOn, BigDecimal total, List<SplitPart> parts) {}
     public record ReverseIn(String reason) {}
 
     // ══ Fee structures ══════════════════════════════════════════════════════
@@ -319,10 +323,31 @@ public class FinanceService {
         if (ref.length() < 4 || ref.length() > 40 || !ref.matches("[A-Z0-9/\\-]+")) {
             throw bad("Enter the " + referenceLabel(method) + " (letters and numbers only).");
         }
-        // The same M-Pesa code / slip / cheque can't be entered twice
-        if (paymentRepository.existsByMethodAndReferenceIgnoreCaseAndReversedFalse(method, ref)) {
+        // The same M-Pesa code / slip / cheque can't be entered twice — unless ONE payment is shared by
+        // several children: then the parts may never add up to more than the total on the message.
+        List<Payment> sameCode = paymentRepository.findByMethodAndReferenceIgnoreCaseAndReversedFalse(method, ref);
+        BigDecimal shared = in.sharedTotal();
+        if (shared != null) {
+            String sp = checkMoney(shared, false);
+            if (sp != null) throw bad("Total on the " + referenceLabel(method) + ": " + sp);
+            for (Payment o : sameCode) {
+                if (o.getCodeTotal() != null && o.getCodeTotal().compareTo(shared) != 0) {
+                    throw bad("This " + referenceLabel(method) + " was recorded with a total of " + o.getCodeTotal().toPlainString()
+                            + " (" + o.getReceiptNumber() + "). Use the same total as on the message.");
+                }
+            }
+            BigDecimal already = sameCode.stream().map(Payment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal left = shared.subtract(already);
+            if (in.amount().compareTo(left) > 0) {
+                throw bad("Only " + left.toPlainString() + " of this " + referenceLabel(method) + " (" + shared.toPlainString()
+                        + ") is left to share — " + already.toPlainString() + " is already recorded for "
+                        + sameCode.stream().map(o -> o.getStudent().getFirstName() + " " + o.getStudent().getLastName() + " (" + o.getReceiptNumber() + ")").toList() + ".");
+            }
+        } else if (!sameCode.isEmpty()) {
+            Payment o = sameCode.get(0);
             throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "This " + referenceLabel(method) + " (" + ref + ") has already been recorded.");
+                    "This " + referenceLabel(method) + " (" + ref + ") is already recorded for " + o.getStudent().getFirstName() + " " + o.getStudent().getLastName()
+                    + " (" + o.getReceiptNumber() + ", " + o.getAmount().toPlainString() + "). If the parent paid for more than one child with it, tick \"shared with another child\" and enter the total on the message.");
         }
         LocalDate paidOn = in.paidOn() != null ? in.paidOn() : LocalDate.now();
         if (paidOn.isAfter(LocalDate.now())) throw bad("The payment date can't be in the future.");
@@ -336,14 +361,104 @@ public class FinanceService {
         p.setPaidOn(paidOn);
         p.setRecordedBy(who);
         p.setRecordedAt(LocalDateTime.now());
+        p.setCodeTotal(shared != null ? shared.setScale(2, RoundingMode.HALF_UP) : null);
         paymentRepository.save(p);
         p.setReceiptNumber(String.format("RCT-%d-%05d", paidOn.getYear(), p.getPaymentId()));
         paymentRepository.save(p);
+        if (shared != null) {                                   // every part of the shared payment carries the total
+            for (Payment o : sameCode) { if (o.getCodeTotal() == null) { o.setCodeTotal(p.getCodeTotal()); paymentRepository.save(o); } }
+        }
 
         Map<String, Object> out = new LinkedHashMap<>(paymentMap(p));
         out.put("student", studentMap(st));
         out.put("newBalance", balanceOf(st.getStudentId()));
         out.put("message", "Payment recorded. Receipt " + p.getReceiptNumber() + ".");
+        return out;
+    }
+
+    /**
+     * One M-Pesa/bank payment for several children (e.g. siblings), in one go: each child gets a
+     * payment with the same code (and their own receipt). The parts must add up EXACTLY to the total.
+     * All or nothing.
+     */
+    @Transactional
+    public Map<String, Object> recordSplitPayment(SplitIn in, String who) {
+        if (in == null || in.parts() == null || in.parts().size() < 2) throw bad("Add at least two children to share the payment.");
+        String tp = checkMoney(in.total(), false);
+        if (tp != null) throw bad("Total paid: " + tp);
+        Set<Long> seen = new HashSet<>();
+        BigDecimal sum = BigDecimal.ZERO;
+        for (SplitPart part : in.parts()) {
+            if (part.studentId() == null) throw bad("Choose every child.");
+            if (!seen.add(part.studentId())) throw bad("The same child is listed twice.");
+            String pp = checkMoney(part.amount(), false);
+            if (pp != null) throw bad("Each child's share: " + pp);
+            sum = sum.add(part.amount());
+        }
+        if (sum.compareTo(in.total()) != 0) {
+            throw bad("The shares add up to " + sum.toPlainString() + " but the total paid is " + in.total().toPlainString()
+                    + " — they must be equal (difference " + in.total().subtract(sum).toPlainString() + ").");
+        }
+        List<Map<String, Object>> receipts = new ArrayList<>();
+        for (SplitPart part : in.parts()) {
+            Map<String, Object> r = recordPayment(new PaymentIn(part.studentId(), part.amount(), in.method(), in.reference(), in.payerName(), in.paidOn(), in.total()), who);
+            receipts.add(r);
+        }
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("receipts", receipts);
+        out.put("total", in.total());
+        out.put("reference", receipts.get(0).get("reference"));
+        out.put("message", "One payment of " + in.total().toPlainString() + " shared by " + receipts.size() + " children: "
+                + receipts.stream().map(r -> String.valueOf(r.get("receiptNumber"))).toList() + ".");
+        return out;
+    }
+
+    /**
+     * Bank reconciliation: every payment whose code appears on the statement, WHATEVER date it was
+     * recorded with (the date typed may differ from the day the bank received it). A code the bank
+     * cut short (6+ characters) also finds the full code.
+     */
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> paymentsByCodes(List<String> codes) {
+        Map<Long, Map<String, Object>> out = new LinkedHashMap<>();
+        for (String raw : codes == null ? List.<String>of() : codes) {
+            String code = raw == null ? "" : raw.toUpperCase().replaceAll("[^A-Z0-9]", "");
+            if (code.length() < 4 || out.size() > 1000) continue;
+            for (Payment p : paymentRepository.findByReferenceStartingWithIgnoreCaseAndReversedFalse(code)) {
+                String ref = p.getReference() == null ? "" : p.getReference().toUpperCase().replaceAll("[^A-Z0-9]", "");
+                if (code.length() < 6 && !ref.equals(code)) continue;      // short codes must match exactly
+                if (out.containsKey(p.getPaymentId())) continue;
+                Map<String, Object> m = new LinkedHashMap<>(paymentMap(p));
+                m.put("student", studentMap(p.getStudent()));
+                out.put(p.getPaymentId(), m);
+            }
+        }
+        return new ArrayList<>(out.values());
+    }
+
+    /** What is already recorded under a code (any method) — the payment screen warns before a duplicate. */
+    @Transactional(readOnly = true)
+    public Map<String, Object> codeInfo(String reference) {
+        String ref = reference == null ? "" : reference.trim().toUpperCase().replaceAll("\\s+", "");
+        List<Map<String, Object>> list = new ArrayList<>();
+        BigDecimal used = BigDecimal.ZERO, codeTotal = null;
+        if (ref.length() >= 4) {
+            for (Payment.Method m : Payment.Method.values()) {
+                for (Payment p : paymentRepository.findByMethodAndReferenceIgnoreCaseAndReversedFalse(m, ref)) {
+                    Map<String, Object> r = new LinkedHashMap<>(paymentMap(p));
+                    r.put("student", studentMap(p.getStudent()));
+                    list.add(r);
+                    used = used.add(p.getAmount());
+                    if (p.getCodeTotal() != null) codeTotal = p.getCodeTotal();
+                }
+            }
+        }
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("reference", ref);
+        out.put("payments", list);
+        out.put("used", used);
+        out.put("codeTotal", codeTotal);
+        out.put("left", codeTotal != null ? codeTotal.subtract(used) : null);
         return out;
     }
 
@@ -561,11 +676,14 @@ public class FinanceService {
         m.put("amount", p.getAmount());
         m.put("method", p.getMethod().name());
         m.put("reference", p.getReference());
+        m.put("codeTotal", p.getCodeTotal());
         m.put("payerName", p.getPayerName());
         m.put("paidOn", p.getPaidOn().toString());
         m.put("recordedBy", p.getRecordedBy());
         m.put("recordedAt", p.getRecordedAt() != null ? p.getRecordedAt().toString() : null);
         m.put("reversed", p.isReversed());
+        m.put("bankConfirmedOn", p.getBankConfirmedOn() != null ? p.getBankConfirmedOn().toString() : null);
+        m.put("bankLine", p.getBankLine());
         m.put("reversalReason", p.getReversalReason());
         m.put("reversedBy", p.getReversedBy());
         return m;

@@ -736,5 +736,210 @@
       "lessons": []
     }
   },
-  "_readme_timetable": "Starting timetable per section: bell times (slots) and lessons per week per subject (lessons), from the school's 2026 block timetables. Loaded ONLY into a section with no bell times, and a grade with no lessons-per-week yet — later changes on Timetable → Setup are never overwritten. 'names' = the ways the subject may be spelled in Subjects (the first match is used). 'mustEndBy' = every lesson of that subject ends by this time (Maths before lunch). Lower Primary comes from the school's Term One 2026 lower timetable. PRE_SCHOOL_example is NOT loaded (Pre-School has no timetable for now); rename the key to PRE_SCHOOL to use it, or set times on Timetable → Setup."
+  "_readme_timetable": "Starting timetable per section: bell times (slots) and lessons per week per subject (lessons), from the school's 2026 block timetables. Loaded ONLY into a section with no bell times, and a grade with no lessons-per-week yet — later changes on Timetable → Setup are never overwritten. 'names' = the ways the subject may be spelled in Subjects (the first match is used). 'mustEndBy' = every lesson of that subject ends by this time (Maths before lunch). Lower Primary comes from the school's Term One 2026 lower timetable. PRE_SCHOOL_example is NOT loaded (Pre-School has no timetable for now); rename the key to PRE_SCHOOL to use it, or set times on Timetable → Setup.",
+  "payroll": {
+    "payeBands": [
+      {
+        "upTo": 24000,
+        "rate": 10
+      },
+      {
+        "upTo": 32333,
+        "rate": 25
+      },
+      {
+        "upTo": 500000,
+        "rate": 30
+      },
+      {
+        "upTo": 800000,
+        "rate": 32.5
+      },
+      {
+        "upTo": null,
+        "rate": 35
+      }
+    ],
+    "personalRelief": 2400,
+    "nssfRate": 6,
+    "nssfUpperLimit": 108000,
+    "shifRate": 2.75,
+    "shifMinimum": 300,
+    "housingRate": 1.5,
+    "housingEmployerRate": 1.5,
+    "nssfBeforePaye": true,
+    "shifBeforePaye": true,
+    "housingBeforePaye": true,
+    "checkedOn": "2026-09-28",
+    "sources": "KRA PAYE bands (Finance Act 2023, in force 2026); personal relief KES 2,400/month; NSSF Year 4 (from Feb 2026): 6% up to KES 108,000; SHIF 2.75%; Affordable Housing Levy 1.5% + 1.5% employer; SHIF and Housing Levy deductible before PAYE since the Tax Laws (Amendment) Act 2024 (27 Dec 2024). CHECK: SHIF minimum KES 300.",
+    "bankFile": {
+      "debitAccount": "",
+      "schoolBankName": "Equity",
+      "schoolBankCode": "",
+      "purposeCode": "SAL",
+      "currency": "KES",
+      "otherBankPaymentType": "EFT",
+      "remarks": ""
+    }
+  },
+  "_readme_payroll": "Starting payroll rates, loaded ONLY when no rates are saved yet. Edit them on Payroll → Rates whenever KRA, NSSF or SHA change them. Every pay run keeps a copy of the rates it used. bankFile = the salary upload file for the bank: the school's account (debitAccount), its bank's name/code (staff at the same bank get BT, others LBT), purpose SAL, currency KES.",
+  "leave": {
+    "types": [
+      {
+        "code": "ANNUAL",
+        "name": "Annual leave",
+        "daysPerYear": 21,
+        "workingDays": true,
+        "paid": true,
+        "genderOnly": null,
+        "carryOverMax": 0,
+        "proRata": true,
+        "sortOrder": 1,
+        "notes": "Employment Act: at least 21 working days a year after 12 months' service. Set how many days may be carried over."
+      },
+      {
+        "code": "SICK",
+        "name": "Sick leave",
+        "daysPerYear": 14,
+        "workingDays": true,
+        "paid": true,
+        "genderOnly": null,
+        "carryOverMax": 0,
+        "proRata": false,
+        "sortOrder": 2,
+        "notes": "Employment Act: 7 days full pay then 7 days half pay (after 2 months' service); a medical certificate is needed."
+      },
+      {
+        "code": "MATERNITY",
+        "name": "Maternity leave",
+        "daysPerYear": 90,
+        "workingDays": false,
+        "paid": true,
+        "genderOnly": "FEMALE",
+        "carryOverMax": 0,
+        "proRata": false,
+        "sortOrder": 3,
+        "notes": "Employment Act: three months with full pay (counted here as 90 calendar days)."
+      },
+      {
+        "code": "PATERNITY",
+        "name": "Paternity leave",
+        "daysPerYear": 14,
+        "workingDays": false,
+        "paid": true,
+        "genderOnly": "MALE",
+        "carryOverMax": 0,
+        "proRata": false,
+        "sortOrder": 4,
+        "notes": "Employment Act: two weeks with full pay (14 calendar days)."
+      },
+      {
+        "code": "COMPASSIONATE",
+        "name": "Compassionate leave",
+        "daysPerYear": 5,
+        "workingDays": true,
+        "paid": true,
+        "genderOnly": null,
+        "carryOverMax": 0,
+        "proRata": false,
+        "sortOrder": 5,
+        "notes": "School policy (e.g. bereavement) — set the days the school allows."
+      },
+      {
+        "code": "UNPAID",
+        "name": "Unpaid leave",
+        "daysPerYear": null,
+        "workingDays": true,
+        "paid": false,
+        "genderOnly": null,
+        "carryOverMax": 0,
+        "proRata": false,
+        "sortOrder": 6,
+        "notes": "No limit; not paid."
+      },
+      {
+        "code": "OTHER",
+        "name": "Other (HR to specify)",
+        "daysPerYear": null,
+        "workingDays": true,
+        "paid": true,
+        "genderOnly": null,
+        "carryOverMax": 0,
+        "proRata": false,
+        "sortOrder": 7,
+        "specify": true,
+        "byHours": false,
+        "notes": "Days outside the standard kinds (e.g. a family wedding, an exam, a school-approved personal engagement) — the applicant says what it is for; HR confirms on approval."
+      },
+      {
+        "code": "PERMISSION",
+        "name": "Short permission (hours)",
+        "daysPerYear": null,
+        "workingDays": true,
+        "paid": true,
+        "genderOnly": null,
+        "carryOverMax": 0,
+        "proRata": false,
+        "sortOrder": 8,
+        "specify": false,
+        "byHours": true,
+        "notes": "A few hours off on one day (e.g. a clinic visit or personal errand), at the school's discretion. Counted in hours, not taken from Act leave."
+      }
+    ],
+    "checkedOn": "2026-10-04",
+    "note": "Starting leave types (Employment Act 2007 minimums as understood — confirm with the school's HR adviser). Any of these not yet in the system are added on start-up (types already there, and your edits, are never changed); edit them on Staff → Leave → Leave types. Public holidays: the fixed ones below and Easter (Good Friday, Easter Monday) are automatic; add others each year (e.g. Idd-ul-Fitr, 10 October if gazetted, a Monday off when a holiday falls on Sunday) on Staff → Leave → Holidays.",
+    "fixedHolidays": [
+      {
+        "monthDay": "01-01",
+        "name": "New Year's Day"
+      },
+      {
+        "monthDay": "05-01",
+        "name": "Labour Day"
+      },
+      {
+        "monthDay": "06-01",
+        "name": "Madaraka Day"
+      },
+      {
+        "monthDay": "10-20",
+        "name": "Mashujaa Day"
+      },
+      {
+        "monthDay": "12-12",
+        "name": "Jamhuri Day"
+      },
+      {
+        "monthDay": "12-25",
+        "name": "Christmas Day"
+      },
+      {
+        "monthDay": "12-26",
+        "name": "Boxing Day"
+      }
+    ],
+    "easter": true
+  },
+  "duty": {
+    "kinds": [
+      {
+        "code": "TOD",
+        "name": "Teacher on duty",
+        "peoplePerWeek": 2,
+        "teachersOnly": true,
+        "sortOrder": 1,
+        "notes": "Oversees the school day: assembly, break, lunch, cleanliness; fills the daily record."
+      }
+    ],
+    "note": "Starting kinds of duty — any not yet in the system are added on start-up; add more (e.g. games, lunch supervision) on Staff → Duty roster."
+  },
+  "staffAttendance": {
+    "lateAfter": "07:45",
+    "note": "Staff signing in after this time are marked LATE. Change it to the school's reporting time."
+  },
+  "feeReminder": {
+    "minBalance": 500,
+    "template": "Dear {parent}, greetings from Pipeline Adventist School. Kindly note the fee balance for {children}. Total: {total}. Please pay via the school account and quote the learner's admission number. Thank you.",
+    "note": "Placeholders: {parent} (guardian's name), {children} (each child, class and balance), {total}. Edited on Finance → Fee Reminders."
+  }
 }

@@ -1,6 +1,5 @@
 package jnm.engineer.demo.security;
 
-import jnm.engineer.demo.services.CustomUserDetailsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
@@ -81,7 +80,38 @@ public class SecurityConfig {
                         .requestMatchers("/api/users/**").hasRole("ADMIN")
 
                         // ── finance: admin and bursar only (reading too) ──
+                        // Treasurer approves the bills the bursar prepares (only the treasurer)
+                        .requestMatchers("/api/finance/expenses/*/approve", "/api/finance/expenses/*/reject").hasRole("TREASURER")
+                        // …approves bills in bulk and raises / cancels the cheques that pay them (only the treasurer)
+                        .requestMatchers(HttpMethod.POST, "/api/finance/expenses/approve", "/api/finance/cheques", "/api/finance/cheques/*/cancel",
+                                "/api/finance/cheques/float", "/api/finance/float/adjust").hasRole("TREASURER")
+                        // Chairperson oversees: may READ finance, payroll and transport (never change them)
+                        .requestMatchers(HttpMethod.GET, "/api/finance/**", "/api/payroll/**", "/api/transport/**").hasAnyRole("ADMIN", "ACCOUNTANT", "CHAIRPERSON")
+                        // Parents / guardians: the office (admin, clerk, bursar/treasurer)
+                        .requestMatchers("/api/guardians", "/api/guardians/**").hasAnyRole("ADMIN", "CLERK", "ACCOUNTANT")
+                        // SMS account settings, test and log: admin only (sending reminders is under /api/reminders)
+                        .requestMatchers("/api/sms", "/api/sms/**").hasRole("ADMIN")
+                        // Fee reminders: admin and bursar/treasurer
+                        .requestMatchers("/api/reminders", "/api/reminders/**").hasAnyRole("ADMIN", "ACCOUNTANT")
+                        // Duty roster: anyone logged in may see it; the head teacher or an admin set it
+                        .requestMatchers(HttpMethod.GET, "/api/duty/**").authenticated()
+                        .requestMatchers("/api/duty/**").hasAnyRole("ADMIN", "HEAD_TEACHER")
+                        // Staff attendance: own sign-in for everyone; the register for the office
+                        .requestMatchers("/api/staff-attendance/mine", "/api/staff-attendance/mine/**").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/staff-attendance/**").hasAnyRole("ADMIN", "HEAD_TEACHER", "CLERK", "CHAIRPERSON")
+                        .requestMatchers("/api/staff-attendance/**").hasAnyRole("ADMIN", "HEAD_TEACHER", "CLERK")
+                        // Leave: every staff member manages their OWN leave; the rest is the office (admin), chairperson may read
+                        .requestMatchers("/api/leave/mine", "/api/leave/mine/**").authenticated()
+                        // Who approves leave: the head teacher (role ticked by the super admin) or an admin
+                        .requestMatchers("/api/leave/requests/*/approve", "/api/leave/requests/*/reject").hasAnyRole("ADMIN", "HEAD_TEACHER")
+                        .requestMatchers(HttpMethod.GET, "/api/leave/**").hasAnyRole("ADMIN", "CHAIRPERSON", "HEAD_TEACHER")
+                        .requestMatchers("/api/leave/**").hasRole("ADMIN")
+                        // Staff register: personal details (ID numbers…) — admin; the chairperson may read
+                        .requestMatchers(HttpMethod.GET, "/api/staff/**").hasAnyRole("ADMIN", "CHAIRPERSON", "HEAD_TEACHER")
+                        .requestMatchers("/api/staff/**").hasRole("ADMIN")
                         .requestMatchers("/api/finance/**").hasAnyRole("ADMIN", "ACCOUNTANT")
+                        // Payroll: salaries are private — admin and bursar only, reading included
+                        .requestMatchers("/api/payroll/**").hasAnyRole("ADMIN", "ACCOUNTANT")
                         .requestMatchers("/api/transport/**").hasAnyRole("ADMIN", "ACCOUNTANT")
                         // Meals & Transport ticking: class teachers (own class, current term — checked in the service)
                         .requestMatchers("/api/class-services/**").hasAnyRole("ADMIN", "ACCOUNTANT", "TEACHER")

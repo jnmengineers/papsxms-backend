@@ -41,6 +41,10 @@ public class TimetableController {
         return ResponseEntity.ok(service.saveClass(classId, in));
     }
 
+    /** Sets every lesson's teacher to the current allocation (admin — SecurityConfig: non-GET). */
+    @PostMapping("/sync-teachers")
+    public ResponseEntity<Map<String, Object>> syncTeachers() { return ResponseEntity.ok(service.syncTeachers(null)); }
+
     @GetMapping("/busy")
     public ResponseEntity<List<Map<String, Object>>> busy(@RequestParam(required = false) Long excludeClassId) {
         return ResponseEntity.ok(service.busy(excludeClassId));

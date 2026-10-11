@@ -9,8 +9,14 @@ import java.util.List;
 
 public interface PaymentRepository extends JpaRepository<Payment, Long> {
     boolean existsByMethodAndReferenceIgnoreCaseAndReversedFalse(Payment.Method method, String reference);
+
+    /** Payments already recorded with this code (a code shared by siblings has several). */
+    List<Payment> findByMethodAndReferenceIgnoreCaseAndReversedFalse(Payment.Method method, String reference);
     List<Payment> findByStudentStudentIdOrderByPaidOnAscPaymentIdAsc(Long studentId);
     List<Payment> findByPaidOnBetweenOrderByPaidOnDescPaymentIdDesc(LocalDate from, LocalDate to);
+
+    /** Bank reconciliation: payments whose code starts with this (the bank may cut a code short). */
+    List<Payment> findByReferenceStartingWithIgnoreCaseAndReversedFalse(String prefix);
 
     /** [studentId, total paid] — reversed payments don't count */
     @Query("select p.student.studentId, sum(p.amount) from Payment p where p.reversed = false group by p.student.studentId")

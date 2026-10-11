@@ -40,7 +40,7 @@ public class SettingsService {
     public record ProfileIn(String name, String shortName, String motto, String postalAddress, String phones,
                             String email, String website, String bankName, String bankBranch, String bankAccountName,
                             String bankAccountNumber, String paybillNumber, String paybillAccountHint, String paymentNote,
-                            String logoLeft, String logoRight) {}
+                            String logoLeft, String logoRight, String classNameStyle) {}
     public record SectionIn(String code, String name, String color, Double meanTarget, Integer sortOrder, Boolean subjectTeaching) {}
     public record GradeIn(String code, String name, String sectionCode, Integer sortOrder, String nextGradeCode) {}
     public record StreamIn(String code, String name, String color, Integer sortOrder, Boolean active) {}
@@ -69,6 +69,21 @@ public class SettingsService {
     @Transactional(readOnly = true)
     public String sectionOfGrade(String grade) {
         return grade == null ? null : gradeRepository.findById(grade.trim().toUpperCase()).map(GradeLevelSetting::getSectionCode).orElse(null);
+    }
+
+    /**
+     * The one class-naming rule: grade code + first letter of the stream's name
+     * (G1 + Blue → "G1B", PP1 + Yellow → "PP1Y", G7 with no stream → "G7").
+     * Returns null if the grade isn't set up in School Settings.
+     */
+    @Transactional(readOnly = true)
+    public String classCode(String gradeLevel, String stream) {
+        String grade = gradeLevel == null ? "" : gradeLevel.trim().toUpperCase();
+        if (grade.isEmpty() || gradeRepository.findById(grade).isEmpty()) return null;
+        String st = stream == null ? "" : stream.trim().toUpperCase();
+        if (st.isEmpty()) return grade;
+        String name = streamRepository.findById(st).map(StreamSetting::getName).orElse(st);
+        return grade + (name.isBlank() ? "" : name.trim().substring(0, 1).toUpperCase());
     }
 
     /** The section's name from Settings ("Upper Primary"), or the code if unknown. */
@@ -132,6 +147,8 @@ public class SettingsService {
         p.setPaymentNote(trim(in.paymentNote(), 200));
         p.setLogoLeft(logo(in.logoLeft(), "Left logo"));
         p.setLogoRight(logo(in.logoRight(), "Right logo"));
+        String style = in.classNameStyle() == null ? "" : in.classNameStyle().trim().toUpperCase();
+        p.setClassNameStyle(Set.of("CODE", "FULL", "BOTH").contains(style) ? style : null);
         return profileRepository.save(p);
     }
 

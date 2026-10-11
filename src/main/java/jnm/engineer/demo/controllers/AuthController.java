@@ -6,6 +6,7 @@ import jnm.engineer.demo.models.User;
 import jnm.engineer.demo.repositories.SchoolClassRepository;
 import jnm.engineer.demo.repositories.UserRepository;
 import jnm.engineer.demo.security.JwtUtil;
+import jnm.engineer.demo.security.RoleGuard;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -49,6 +50,7 @@ public class AuthController {
     private final PasswordEncoder passwordEncoder;
     private final UserRepository userRepository;
     private final SchoolClassRepository schoolClassRepository;
+    private final RoleGuard roleGuard;
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest request) {
@@ -85,7 +87,9 @@ public class AuthController {
 
         UserDetails userDetails = (UserDetails) authentication.getPrincipal();
         String username = userDetails.getUsername();
-        String role = userDetails.getAuthorities().iterator().next().getAuthority().replace("ROLE_", "");
+        // Main role (what the person sees first); every role they hold goes in "roles" below
+        String role = userRepository.findByUsername(username).map(u -> u.getRole().name())
+                .orElse(userDetails.getAuthorities().iterator().next().getAuthority().replace("ROLE_", ""));
 
         Long linkedClassId = null;
         String linkedClassName = null;
@@ -128,6 +132,7 @@ public class AuthController {
         Map<String, Object> response = new HashMap<>();
         response.put("token", token);
         response.put("role", role);
+        response.put("roles", userDetails.getAuthorities().stream().map(a -> a.getAuthority().replace("ROLE_", "")).sorted().toList());
         response.put("username", username);
         response.put("linkedClassId", linkedClassId);
         response.put("linkedClassName", linkedClassName);
@@ -160,7 +165,10 @@ public class AuthController {
         try {
             role = User.Role.valueOf(request.getRole() == null ? "" : request.getRole().trim().toUpperCase());
         } catch (IllegalArgumentException e) {
-            return error(HttpStatus.BAD_REQUEST, "Role must be one of: ADMIN, TEACHER, CLERK, ACCOUNTANT.");
+            return error(HttpStatus.BAD_REQUEST, "Role must be one of: " + java.util.Arrays.toString(User.Role.values()) + ".");
+        }
+        if (RoleGuard.RESERVED.contains(role) && !roleGuard.mayManageRoles()) {
+            return error(HttpStatus.FORBIDDEN, "Only the super admin can create a " + role.name().replace('_', ' ').toLowerCase() + " account.");
         }
 
         if (userRepository.findByUsername(username).isPresent()) {

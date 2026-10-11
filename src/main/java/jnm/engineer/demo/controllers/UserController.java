@@ -8,6 +8,7 @@ import jnm.engineer.demo.repositories.SchoolClassRepository;
 import jnm.engineer.demo.repositories.TeacherRepository;
 import jnm.engineer.demo.repositories.UserRepository;
 import jnm.engineer.demo.services.UserService;
+import jnm.engineer.demo.security.RoleGuard;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -42,6 +43,7 @@ public class UserController {
 
     private final UserService userService;
     private final UserRepository userRepository;
+    private final RoleGuard roleGuard;
     private final TeacherRepository teacherRepository;
     private final SchoolClassRepository schoolClassRepository;
     private final PasswordEncoder passwordEncoder;
@@ -68,7 +70,48 @@ public class UserController {
 
     @PutMapping("/{id}")
     public ResponseEntity<User> update(@PathVariable Long id, @Valid @RequestBody User user) {
+        User existing = userService.getById(id);
+        if (user.getRole() != existing.getRole() && !roleGuard.mayManageRoles()
+                && (RoleGuard.RESERVED.contains(user.getRole()) || RoleGuard.RESERVED.contains(existing.getRole()))) {
+            throw new org.springframework.web.server.ResponseStatusException(HttpStatus.FORBIDDEN, "Only the super admin can give or take away that role.");
+        }
         return ResponseEntity.ok(userService.update(id, user));
+    }
+
+    // ── Roles (super admin ticks them) ───────────────────────────────
+    public record RolesIn(String role, List<String> extraRoles) {}
+
+    /** Every role, for the ticking screen, and whether this person may change them. */
+    @GetMapping("/roles")
+    public ResponseEntity<Map<String, Object>> roleOptions() {
+        return ResponseEntity.ok(Map.of("roles", java.util.Arrays.stream(User.Role.values()).map(Enum::name).toList(),
+                "canManage", roleGuard.mayManageRoles()));
+    }
+
+    /** Set a user's main role and the extra roles ticked for them. Super admin only (or anyone while there is none yet). */
+    @PutMapping("/{id}/roles")
+    public ResponseEntity<Map<String, Object>> setRoles(@PathVariable Long id, @RequestBody RolesIn in) {
+        if (!roleGuard.mayManageRoles()) throw new org.springframework.web.server.ResponseStatusException(HttpStatus.FORBIDDEN, "Only the super admin can tick roles.");
+        User u = userService.getById(id);
+        User.Role main;
+        java.util.Set<User.Role> extra = java.util.EnumSet.noneOf(User.Role.class);
+        try {
+            main = User.Role.valueOf(String.valueOf(in.role()).trim().toUpperCase());
+            for (String r : in.extraRoles() == null ? List.<String>of() : in.extraRoles()) extra.add(User.Role.valueOf(r.trim().toUpperCase()));
+        } catch (IllegalArgumentException e) {
+            throw new org.springframework.web.server.ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown role.");
+        }
+        extra.remove(main);
+        boolean wasSuper = u.hasRole(User.Role.SUPER_ADMIN);
+        boolean willBeSuper = main == User.Role.SUPER_ADMIN || extra.contains(User.Role.SUPER_ADMIN);
+        if (wasSuper && !willBeSuper && userRepository.findAll().stream().filter(x -> x.hasRole(User.Role.SUPER_ADMIN)).count() <= 1) {
+            throw new org.springframework.web.server.ResponseStatusException(HttpStatus.BAD_REQUEST, "The school must keep at least one super admin.");
+        }
+        u.setRole(main);
+        u.setExtraRoles(extra.isEmpty() ? null : String.join(",", extra.stream().map(Enum::name).toList()));
+        userRepository.save(u);
+        return ResponseEntity.ok(Map.of("message", u.getUsername() + ": roles saved. They apply from their next login.",
+                "role", main.name(), "extraRoles", extra.stream().map(Enum::name).toList()));
     }
 
     // ── Passwords & lockout ──────────────────────────────────────────────────

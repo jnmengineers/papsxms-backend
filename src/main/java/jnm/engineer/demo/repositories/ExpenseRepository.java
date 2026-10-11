@@ -8,6 +8,9 @@ import java.util.List;
 
 public interface ExpenseRepository extends JpaRepository<Expense, Long> {
     List<Expense> findBySpentOnBetweenOrderBySpentOnDescExpenseIdDesc(LocalDate from, LocalDate to);
+
+    /** Bank reconciliation: expenses whose reference starts with this (e.g. a cheque number). */
+    List<Expense> findByReferenceStartingWithIgnoreCaseAndVoidedFalse(String prefix);
     List<Expense> findByYearLabelAndTermOrderBySpentOnDescExpenseIdDesc(String yearLabel, Integer term);
     long countByGroupGroupId(Long groupId);
 }

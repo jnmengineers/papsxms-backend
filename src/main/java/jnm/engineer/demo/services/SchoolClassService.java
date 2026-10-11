@@ -24,6 +24,7 @@ public class SchoolClassService {
     private final ExamScheduleRepository examScheduleRepository;
     private final UserService userService;
     private final SettingsService settingsService;
+    private final TimetableService timetableService;   // class-taught lessons follow the class teacher
 
     public List<SchoolClass> getAllSchoolClasses() {
         return schoolClassRepository.findAll();
@@ -60,7 +61,22 @@ public class SchoolClassService {
         if (schoolClass.getMeanTarget() == null) {
             schoolClass.setMeanTarget(settingsService.targetOfSection(schoolClass.getSection()));
         }
+        applyStandardName(schoolClass, null);
         return schoolClassRepository.save(schoolClass);
+    }
+
+    /**
+     * Every class is named by the one rule (grade code + stream letter, e.g. G1B) so every
+     * module shows the same name. Refuses a second class with the same name.
+     */
+    private void applyStandardName(SchoolClass cls, Long ownId) {
+        if (cls.getStream() != null) cls.setStream(cls.getStream().trim().isEmpty() ? null : cls.getStream().trim().toUpperCase());
+        String code = settingsService.classCode(cls.getGradeLevel(), cls.getStream());
+        if (code != null) cls.setClassName(code);
+        String name = cls.getClassName() == null ? "" : cls.getClassName().trim();
+        boolean taken = schoolClassRepository.findAll().stream()
+                .anyMatch(o -> !o.getClassId().equals(ownId) && name.equalsIgnoreCase(String.valueOf(o.getClassName()).trim()));
+        if (taken) throw new ResponseStatusException(HttpStatus.CONFLICT, "There is already a class called " + name + ".");
     }
 
     @Transactional
@@ -71,6 +87,7 @@ public class SchoolClassService {
         existing.setGradeLevel(updated.getGradeLevel());
         existing.setSection(updated.getSection());
         existing.setMeanTarget(updated.getMeanTarget());
+        applyStandardName(existing, id);
         SchoolClass saved = schoolClassRepository.save(existing);
 
         // Keep the copies of className and stream on each student up to date
@@ -94,6 +111,7 @@ public class SchoolClassService {
                 .orElseThrow(() -> new RuntimeException("Teacher not found"));
         schoolClass.setClassTeacher(teacher);
         SchoolClass saved = schoolClassRepository.save(schoolClass);
+        timetableService.syncTeachers(classId);
 
         // Auto-create or update the teacher's login, linked to this class.
         // A NEW login gets a random temporary password (no longer the phone number),
@@ -106,7 +124,9 @@ public class SchoolClassService {
     public SchoolClass unassignClassTeacher(Long classId) {
         SchoolClass schoolClass = getById(classId);
         schoolClass.setClassTeacher(null);
-        return schoolClassRepository.save(schoolClass);
+        SchoolClass saved = schoolClassRepository.save(schoolClass);
+        timetableService.syncTeachers(classId);
+        return saved;
     }
 
     /**

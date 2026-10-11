@@ -32,6 +32,8 @@ public class SchoolProfile {
     @Column(length = 20)  private String paybillNumber;
     @Column(length = 80)  private String paybillAccountHint;   // e.g. "Pupil's name"
     @Column(length = 200) private String paymentNote;          // e.g. "Cash payment is not allowed"
+    /** How classes are named on pages and documents: CODE (G1B), FULL (Grade 1 Blue), BOTH. Empty = FULL. */
+    @Column(length = 10)  private String classNameStyle;
 
     // Logos as data URLs (image stored in the database). Empty = use the built-in logos.
     @Lob @Column(columnDefinition = "LONGTEXT") private String logoLeft;
