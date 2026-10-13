@@ -188,12 +188,8 @@ public class ResultService {
         // Get all exams for this term and year, ordered by exam type
         List<Exam> termExams = examRepository.findAll().stream()
                 .filter(e -> e.getTerm() != null && e.getTerm().equals(term)
-                        && academicYear.equals(e.getAcademicYear()))
-                .sorted((a, b) -> {
-                    int orderA = examTypeOrder(a.getExamType());
-                    int orderB = examTypeOrder(b.getExamType());
-                    return Integer.compare(orderA, orderB);
-                })
+                        && academicYear.equals(e.getAcademicYear()) && orderOf(e) != null)
+                .sorted(java.util.Comparator.comparing(ResultService::orderOf))
                 .collect(java.util.stream.Collectors.toList());
 
         // Get all results for this student in this term
@@ -217,7 +213,8 @@ public class ResultService {
                 subjectMap.put(key, subjectData);
             }
 
-            String examType = r.getExam().getExamType() != null ? r.getExam().getExamType() : "MID_TERM";
+            String examType = slotOf(r.getExam()) != null ? slotOf(r.getExam())
+                    : (r.getExam().getExamType() != null ? r.getExam().getExamType() : "MID_TERM");
             @SuppressWarnings("unchecked")
             Map<String, Object> marks = (Map<String, Object>) subjectMap.get(key).get("marks");
             marks.put(examType, r.getMarksObtained());
@@ -257,13 +254,13 @@ public class ResultService {
         response.put("student", student);
         response.put("term", term);
         response.put("academicYear", academicYear);
-        response.put("exams", termExams);
+        response.put("exams", examsForCard(termExams));
         response.put("subjects", subjects);
         return response;
     }
 
 
-       // ── Progressive results for a student, anchored to a specific exam ────────
+    // ── Progressive results for a student, anchored to a specific exam ────────
     // Only includes exams with examOrder <= the anchor exam's examOrder, within
     // the same term/academicYear. EXTRA-type exams (examOrder = null) are excluded
     // from the sequence entirely unless the anchor itself is the EXTRA exam.
@@ -272,7 +269,7 @@ public class ResultService {
         Exam anchorExam = examRepository.findById(examId)
                 .orElseThrow(() -> new RuntimeException("Exam not found: " + examId));
 
-        Integer anchorOrder = anchorExam.getExamOrder();
+        Integer anchorOrder = orderOf(anchorExam);   // Opener 1, Mid 2, End 3 — by name
         Integer term = anchorExam.getTerm();
         String academicYear = anchorExam.getAcademicYear();
 
@@ -283,8 +280,8 @@ public class ResultService {
             termExams.add(anchorExam);
         } else {
             termExams = examRepository.findByTermAndAcademicYear(term, academicYear).stream()
-                    .filter(e -> e.getExamOrder() != null && e.getExamOrder() <= anchorOrder)
-                    .sorted(java.util.Comparator.comparing(Exam::getExamOrder))
+                    .filter(e -> orderOf(e) != null && orderOf(e) <= anchorOrder)
+                    .sorted(java.util.Comparator.comparing(ResultService::orderOf))
                     .collect(java.util.stream.Collectors.toList());
         }
 
@@ -307,7 +304,8 @@ public class ResultService {
                 subjectMap.put(key, subjectData);
             }
 
-            String examType = r.getExam().getExamType() != null ? r.getExam().getExamType() : "MID_TERM";
+            String examType = slotOf(r.getExam()) != null ? slotOf(r.getExam())
+                    : (r.getExam().getExamType() != null ? r.getExam().getExamType() : "MID_TERM");
             @SuppressWarnings("unchecked")
             Map<String, Object> marks = (Map<String, Object>) subjectMap.get(key).get("marks");
             marks.put(examType, r.getMarksObtained());
@@ -344,7 +342,7 @@ public class ResultService {
         response.put("student", student);
         response.put("term", term);
         response.put("academicYear", academicYear);
-        response.put("exams", termExams);
+        response.put("exams", examsForCard(termExams));
         response.put("subjects", subjects);
         return response;
     }
@@ -413,6 +411,40 @@ public class ResultService {
     }
 
     // Helper — order OPENING=1, MID_TERM=2, END_TERM=3
+    /**
+     * Which report-card column an exam belongs to, by its NAME (the school's standard):
+     * "Opener"/"Opening" → OPENING, "Mid"/"Mid Term" → MID_TERM, "End"/"End Term" → END_TERM.
+     * Any other exam (e.g. "JESMA Final Prediction", "Extra assessment 2") → null: not a term column.
+     */
+    static String slotOf(Exam e) {
+        String n = e == null || e.getExamName() == null ? "" : e.getExamName().toLowerCase();
+        if (n.contains("open")) return "OPENING";
+        if (n.matches(".*\\bmid.*")) return "MID_TERM";
+        if (n.matches(".*\\bend\\b.*")) return "END_TERM";
+        return null;
+    }
+
+    /** 1 / 2 / 3 for Opener / Mid / End; null for other exams. */
+    static Integer orderOf(Exam e) {
+        String s = slotOf(e);
+        return s == null ? null : s.equals("OPENING") ? 1 : s.equals("MID_TERM") ? 2 : 3;
+    }
+
+    /** The term's exams as sent to the report card, with the column decided by name. */
+    private static List<Map<String, Object>> examsForCard(List<Exam> exams) {
+        List<Map<String, Object>> out = new java.util.ArrayList<>();
+        for (Exam e : exams) {
+            Map<String, Object> m = new java.util.LinkedHashMap<>();
+            m.put("examId", e.getExamId());
+            m.put("examName", e.getExamName());
+            m.put("examType", slotOf(e) != null ? slotOf(e) : e.getExamType());
+            m.put("term", e.getTerm());
+            m.put("academicYear", e.getAcademicYear());
+            out.add(m);
+        }
+        return out;
+    }
+
     private int examTypeOrder(String examType) {
         if (examType == null) return 2;
         switch (examType) {
