@@ -119,6 +119,7 @@ public class TransportService {
         }
         List<Map<String, Object>> rows = new ArrayList<>();
         for (Student st : studentService.getAllStudents()) {
+            if (!st.isInSchool()) continue;   // learners who left are not charged
             SchoolClass cls = st.getSchoolClass();
             if (cls == null) continue;
             if (classId != null && !classId.equals(cls.getClassId())) continue;

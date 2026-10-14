@@ -143,6 +143,7 @@ public class FinanceService {
         LocalDateTime now = LocalDateTime.now();
 
         for (Student st : studentService.getAllStudents()) {
+            if (!st.isInSchool()) continue;   // learners who left are not billed
             SchoolClass cls = st.getSchoolClass();
             if (cls == null || !sectionCodes.contains(String.valueOf(cls.getSection()))) { noClass++; continue; }
             int[] c = perSection.get(cls.getSection());
@@ -209,7 +210,9 @@ public class FinanceService {
             BigDecimal b = billed.getOrDefault(st.getStudentId(), BigDecimal.ZERO);
             BigDecimal p = paid.getOrDefault(st.getStudentId(), BigDecimal.ZERO);
             BigDecimal bal = b.subtract(p);
+            if (!st.isInSchool() && bal.signum() == 0) continue;   // left & settled: nothing to follow up
             Map<String, Object> r = studentMap(st);
+            if (!st.isInSchool()) r.put("left", st.getStatus());
             r.put("billed", b);
             r.put("paid", p);
             r.put("balance", bal);
@@ -529,6 +532,7 @@ public class FinanceService {
         BigDecimal sumThis = BigDecimal.ZERO, sumPaidThis = BigDecimal.ZERO, sumBf = BigDecimal.ZERO, sumOwed = BigDecimal.ZERO;
         int owing = 0, cleared = 0, credit = 0;
         for (Student st : studentService.getAllStudents()) {
+            if (!st.isInSchool()) continue;   // learners who left are not on the class sheet
             SchoolClass cls = st.getSchoolClass();
             if (cls == null) continue;
             if (classId != null && !classId.equals(cls.getClassId())) continue;

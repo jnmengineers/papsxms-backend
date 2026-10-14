@@ -147,6 +147,7 @@ public class ExtraChargeService {
 
         List<Map<String, Object>> rows = new ArrayList<>();
         for (Student st : studentService.getAllStudents()) {
+            if (!st.isInSchool()) continue;   // learners who left are not charged
             SchoolClass cls = st.getSchoolClass();
             if (!c.appliesTo(cls)) continue;
             if (classId != null && !classId.equals(cls.getClassId())) continue;

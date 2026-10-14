@@ -24,6 +24,11 @@ public class StudentService {
         return studentRepository.findAll();
     }
 
+    /** Saves a learner as-is (used for leaving / reinstating). */
+    public Student save(Student s) {
+        return studentRepository.save(s);
+    }
+
     public Student getById(Long id){
         return studentRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("student not found with id: " + id));

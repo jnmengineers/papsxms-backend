@@ -221,7 +221,7 @@ public class ResultService {
         }
 
         // Calculate trend per subject (first exam → last exam available)
-        List<Map<String, Object>> subjects = new java.util.ArrayList<>();
+        List<Map<String, Object>> subjects = new ArrayList<>();
         for (Map<String, Object> subData : subjectMap.values()) {
             @SuppressWarnings("unchecked")
             Map<String, Object> marks = (Map<String, Object>) subData.get("marks");
@@ -260,7 +260,7 @@ public class ResultService {
     }
 
 
-    // ── Progressive results for a student, anchored to a specific exam ────────
+       // ── Progressive results for a student, anchored to a specific exam ────────
     // Only includes exams with examOrder <= the anchor exam's examOrder, within
     // the same term/academicYear. EXTRA-type exams (examOrder = null) are excluded
     // from the sequence entirely unless the anchor itself is the EXTRA exam.
@@ -276,7 +276,7 @@ public class ResultService {
         List<Exam> termExams;
         if (anchorOrder == null) {
             // Anchor itself is an EXTRA (or otherwise unordered) exam — show only itself, not progressive
-            termExams = new java.util.ArrayList<>();
+            termExams = new ArrayList<>();
             termExams.add(anchorExam);
         } else {
             termExams = examRepository.findByTermAndAcademicYear(term, academicYear).stream()
@@ -311,7 +311,7 @@ public class ResultService {
             marks.put(examType, r.getMarksObtained());
         }
 
-        List<Map<String, Object>> subjects = new java.util.ArrayList<>();
+        List<Map<String, Object>> subjects = new ArrayList<>();
         for (Map<String, Object> subData : subjectMap.values()) {
             @SuppressWarnings("unchecked")
             Map<String, Object> marks = (Map<String, Object>) subData.get("marks");
@@ -357,7 +357,7 @@ public class ResultService {
                 .sorted((a, b) -> Integer.compare(examTypeOrder(a.getExamType()), examTypeOrder(b.getExamType())))
                 .collect(java.util.stream.Collectors.toList());
 
-        if (termExams.size() < 2) return new java.util.ArrayList<>();
+        if (termExams.size() < 2) return new ArrayList<>();
 
         Exam firstExam = termExams.get(0);
         Exam latestExam = termExams.get(termExams.size() - 1);
@@ -376,7 +376,7 @@ public class ResultService {
         Map<Long, Double> latestAvg = averageByStudent(latestResults);
 
         // Calculate improvement
-        List<Map<String, Object>> improvements = new java.util.ArrayList<>();
+        List<Map<String, Object>> improvements = new ArrayList<>();
         for (Long studentId : latestAvg.keySet()) {
             if (!firstAvg.containsKey(studentId)) continue;
             double improvement = latestAvg.get(studentId) - firstAvg.get(studentId);
@@ -432,7 +432,7 @@ public class ResultService {
 
     /** The term's exams as sent to the report card, with the column decided by name. */
     private static List<Map<String, Object>> examsForCard(List<Exam> exams) {
-        List<Map<String, Object>> out = new java.util.ArrayList<>();
+        List<Map<String, Object>> out = new ArrayList<>();
         for (Exam e : exams) {
             Map<String, Object> m = new java.util.LinkedHashMap<>();
             m.put("examId", e.getExamId());
@@ -460,7 +460,7 @@ public class ResultService {
         Map<Long, List<Double>> grouped = new java.util.LinkedHashMap<>();
         for (Result r : results) {
             Long sid = r.getStudent().getStudentId();
-            grouped.computeIfAbsent(sid, k -> new java.util.ArrayList<>()).add(r.getMarksObtained());
+            grouped.computeIfAbsent(sid, k -> new ArrayList<>()).add(r.getMarksObtained());
         }
         Map<Long, Double> averages = new java.util.LinkedHashMap<>();
         grouped.forEach((sid, marks) ->

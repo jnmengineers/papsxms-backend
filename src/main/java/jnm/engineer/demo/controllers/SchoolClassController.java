@@ -108,7 +108,7 @@ public class SchoolClassController {
     @DeleteMapping("/{id}")
     @Transactional
     public ResponseEntity<?> delete(@PathVariable Long id) {
-        int studentCount = studentService.GetByClass(id).size();
+        int studentCount = (int) studentService.GetByClass(id).stream().filter(st -> st.isInSchool()).count();   // in school only
         if (studentCount > 0) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message",
                     "This class still has " + studentCount + " student(s). Move them to another class first."));

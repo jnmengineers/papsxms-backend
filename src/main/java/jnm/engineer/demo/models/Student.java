@@ -53,4 +53,30 @@ public class Student {
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "classId")
     private SchoolClass schoolClass;
+
+    // ── Leaving school (transfer etc.). Empty status = in school. Marks, report cards and fees are kept. ──
+    /** null / ACTIVE = in school; TRANSFERRED (with consent), DISAPPEARED (without notice), LEFT or GRADUATED */
+    @Column(length = 20)
+    private String status;
+    private LocalDate dateLeft;
+    @Column(length = 200)
+    private String leftReason;
+    /** Did the parent/guardian give notice or consent (transfer letter)? false for DISAPPEARED */
+    private Boolean leaveConsent;
+    /** Fee balance on the day the learner was marked as left (positive = owed) */
+    @Column(precision = 12, scale = 2)
+    private java.math.BigDecimal balanceAtLeaving;
+    /** The school the learner moved to (transfers) */
+    @Column(length = 120)
+    private String transferSchool;
+
+    /** True while the learner is in school. */
+    @Transient
+    @JsonIgnore
+    public boolean isInSchool() { return status == null || status.isBlank() || "ACTIVE".equalsIgnoreCase(status); }
+
+    /** True if the learner was in school on that day (left later, or not left at all). */
+    @Transient
+    @JsonIgnore
+    public boolean isInSchoolOn(LocalDate day) { return isInSchool() || (dateLeft != null && day != null && dateLeft.isAfter(day)); }
 }

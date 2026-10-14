@@ -46,7 +46,7 @@ public class AttendanceService {
 
         // Only learners currently in this class may be marked
         Map<Long, Student> classStudents = new HashMap<>();
-        for (Student s : studentService.GetByClass(classId)) classStudents.put(s.getStudentId(), s);
+        for (Student s : studentService.GetByClass(classId)) if (s.isInSchoolOn(date)) classStudents.put(s.getStudentId(), s);
 
         Map<Long, AttendanceRecord> existing = new HashMap<>();
         for (AttendanceRecord r : repository.findBySchoolClassClassIdAndDate(classId, date)) {
@@ -92,6 +92,7 @@ public class AttendanceService {
     public Map<String, Object> schoolDay(LocalDate date) {
         Map<Long, int[]> enrolled = new HashMap<>();   // classId → [boys, girls, not set]
         for (Student s : studentService.getAllStudents()) {
+            if (!s.isInSchoolOn(date)) continue;   // had left by this day
             if (s.getSchoolClass() == null) continue;
             enrolled.computeIfAbsent(s.getSchoolClass().getClassId(), k -> new int[3])[genderIndex(s)]++;
         }
@@ -138,7 +139,7 @@ public class AttendanceService {
         Set<LocalDate> daysTaken = new TreeSet<>();
         Map<Long, int[]> counts = new LinkedHashMap<>();   // [present, absent, late, excused]
         Map<Long, Student> students = new LinkedHashMap<>();
-        for (Student s : studentService.GetByClass(classId)) { students.put(s.getStudentId(), s); counts.put(s.getStudentId(), new int[4]); }
+        for (Student s : studentService.GetByClass(classId)) { if (!s.isInSchoolOn(from)) continue; students.put(s.getStudentId(), s); counts.put(s.getStudentId(), new int[4]); }
 
         for (AttendanceRecord r : repository.findBySchoolClassClassIdAndDateBetween(classId, from, to)) {
             daysTaken.add(r.getDate());

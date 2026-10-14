@@ -26,6 +26,7 @@ import java.util.Map;
 public class StudentController {
     private final StudentService studentService;
     private final AccessGuard accessGuard;
+    private final jnm.engineer.demo.services.FinanceService financeService;
 
     private static Long classOf(Student s) {
         return (s != null && s.getSchoolClass() != null) ? s.getSchoolClass().getClassId() : null;
@@ -39,7 +40,59 @@ public class StudentController {
     // GET /api/students
     @GetMapping
     public ResponseEntity<List<Student>> getAll() {
-        return ResponseEntity.ok(visible(studentService.getAllStudents()));
+        return ResponseEntity.ok(inSchool(visible(studentService.getAllStudents())));
+    }
+
+    // ── Learners who have left (transferred, left, graduated) — kept with their marks and fees ──
+    public record LeaveIn(String status, java.time.LocalDate dateLeft, String reason, String transferSchool, Boolean consent) {}
+    private static final java.util.Set<String> LEAVE_STATUSES = java.util.Set.of("TRANSFERRED", "DISAPPEARED", "LEFT", "GRADUATED");
+
+    /** Only learners still in school (everyday lists: classes, mark entry, report cards, promotion). */
+    private static List<Student> inSchool(List<Student> list) {
+        return list.stream().filter(Student::isInSchool).collect(java.util.stream.Collectors.toList());
+    }
+
+    // GET /api/students/former — learners who have left
+    @GetMapping("/former")
+    public ResponseEntity<List<Map<String, Object>>> former() {
+        List<Map<String, Object>> out = new java.util.ArrayList<>();
+        visible(studentService.getAllStudents()).stream().filter(s -> !s.isInSchool())
+                .sorted(java.util.Comparator.comparing(Student::getDateLeft, java.util.Comparator.nullsLast(java.util.Comparator.reverseOrder())))
+                .forEach(s -> {
+                    Map<String, Object> m = new java.util.LinkedHashMap<>();
+                    m.put("student", s);
+                    m.put("balanceNow", financeService.balanceOf(s.getStudentId()));   // follow-up of arrears
+                    out.add(m);
+                });
+        return ResponseEntity.ok(out);
+    }
+
+    // PUT /api/students/5/leave  {status: TRANSFERRED|LEFT|GRADUATED, dateLeft, reason, transferSchool}
+    @PutMapping("/{id}/leave")
+    public ResponseEntity<Student> leave(@PathVariable Long id, @RequestBody LeaveIn in) {
+        Student s = studentService.getById(id);
+        if (!accessGuard.currentScope().canWrite(classOf(s), null)) throw AccessGuard.forbidden("You can only change students in your own classes.");
+        String st = in == null || in.status() == null ? "" : in.status().trim().toUpperCase();
+        if (!LEAVE_STATUSES.contains(st)) throw new org.springframework.web.server.ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose Transferred, Disappeared, Left or Graduated.");
+        java.time.LocalDate d = in.dateLeft() != null ? in.dateLeft() : java.time.LocalDate.now();
+        if (d.isAfter(java.time.LocalDate.now())) throw new org.springframework.web.server.ResponseStatusException(HttpStatus.BAD_REQUEST, "The date left can't be in the future.");
+        s.setStatus(st);
+        s.setDateLeft(d);
+        s.setLeftReason(in.reason() == null || in.reason().isBlank() ? null : in.reason().trim());
+        s.setTransferSchool("TRANSFERRED".equals(st) && in.transferSchool() != null && !in.transferSchool().isBlank() ? in.transferSchool().trim() : null);
+        s.setLeaveConsent("DISAPPEARED".equals(st) ? Boolean.FALSE : Boolean.TRUE.equals(in.consent()));
+        s.setBalanceAtLeaving(financeService.balanceOf(s.getStudentId()));   // snapshot: what was owed on leaving
+        return ResponseEntity.ok(studentService.save(s));
+    }
+
+    // PUT /api/students/5/reinstate — back in school
+    @PutMapping("/{id}/reinstate")
+    public ResponseEntity<Student> reinstate(@PathVariable Long id) {
+        Student s = studentService.getById(id);
+        if (!accessGuard.currentScope().canWrite(classOf(s), null)) throw AccessGuard.forbidden("You can only change students in your own classes.");
+        s.setStatus(null); s.setDateLeft(null); s.setLeftReason(null); s.setTransferSchool(null);
+        s.setLeaveConsent(null); s.setBalanceAtLeaving(null);
+        return ResponseEntity.ok(studentService.save(s));
     }
 
     // GET /api/students/5
@@ -56,7 +109,7 @@ public class StudentController {
     // TODO (unchanged): still calls searchByName(), which searches STUDENT names, not class names.
     @GetMapping("/by-class-name")
     public ResponseEntity<List<Student>> getByClassName(@RequestParam String className) {
-        return ResponseEntity.ok(visible(studentService.searchByName(className)));
+        return ResponseEntity.ok(inSchool(visible(studentService.searchByName(className))));
     }
 
     // GET /api/students/by-class/5
@@ -65,13 +118,13 @@ public class StudentController {
         if (!accessGuard.currentScope().canRead(classId)) {
             throw AccessGuard.forbidden("You can only view students in your own classes.");
         }
-        return ResponseEntity.ok(studentService.GetByClass(classId));
+        return ResponseEntity.ok(inSchool(studentService.GetByClass(classId)));
     }
 
     // GET /api/students/search?name=jane
     @GetMapping("/search")
     public ResponseEntity<List<Student>> search(@RequestParam String name) {
-        return ResponseEntity.ok(visible(studentService.searchByName(name)));
+        return ResponseEntity.ok(inSchool(visible(studentService.searchByName(name))));
     }
 
     // POST /api/students?classId=5
