@@ -91,6 +91,9 @@ public class SecurityConfig {
                         // Chairperson oversees: may READ finance, payroll and transport (never change them)
                         // A learner's fee statement: also class teachers (own class only — checked in FinanceController)
                         .requestMatchers(HttpMethod.GET, "/api/finance/students/*/statement").hasAnyRole("ADMIN", "ACCOUNTANT", "CHAIRPERSON", "TEACHER")
+                        // School overview (head teacher): read-only summaries
+                        .requestMatchers(HttpMethod.GET, "/api/finance/balances").hasAnyRole("ADMIN", "ACCOUNTANT", "CHAIRPERSON", "HEAD_TEACHER")
+                        .requestMatchers(HttpMethod.GET, "/api/attendance/school-day/**").hasAnyRole("ADMIN", "TEACHER", "HEAD_TEACHER", "CHAIRPERSON")
                         .requestMatchers(HttpMethod.GET, "/api/finance/**", "/api/payroll/**", "/api/transport/**").hasAnyRole("ADMIN", "ACCOUNTANT", "CHAIRPERSON")
                         // Parents / guardians: the office (admin, clerk, bursar/treasurer)
                         .requestMatchers("/api/guardians", "/api/guardians/**").hasAnyRole("ADMIN", "CLERK", "ACCOUNTANT")
