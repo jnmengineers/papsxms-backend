@@ -47,9 +47,13 @@ public class User {
                 try { if (!r.isBlank()) out.add(Role.valueOf(r.trim().toUpperCase())); } catch (IllegalArgumentException ignored) { /* old value */ }
             }
         }
+        boolean headTicked = out.contains(Role.HEAD_TEACHER);              // ticked itself, not via deputy
         if (out.contains(Role.SUPER_ADMIN)) out.add(Role.ADMIN);          // a super admin is also an admin
         if (out.contains(Role.TREASURER)) out.add(Role.ACCOUNTANT);       // the treasurer can do the bursar's work
         if (out.contains(Role.DEPUTY_HEAD)) out.add(Role.HEAD_TEACHER);   // the deputy can do the head teacher's work
+        // Only the head teacher (ticked as such, not the deputy) also gets the chairperson's read-only
+        // finance view. Deputy and senior teacher see academics and staff, but no finance.
+        if (headTicked) out.add(Role.CHAIRPERSON);
         if (out.contains(Role.SENIOR_TEACHER)) out.add(Role.TEACHER);     // a senior teacher is a teacher
         return out;
     }

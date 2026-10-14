@@ -79,8 +79,13 @@ public class AccessGuard {
         public boolean isAll() { return all; }
 
         public boolean canRead(Long classId) {
-            return all || (classId != null && readableClassIds.contains(classId));
+            return all || readAll || (classId != null && readableClassIds.contains(classId));
         }
+
+        /** Head teacher, deputy, senior teacher: READ every class; still EDIT only their own. */
+        private boolean readAll;
+        Scope readingAll() { this.readAll = true; return this; }
+        public boolean isReadAll() { return all || readAll; }
 
         public boolean canWrite(Long classId, Long subjectId) {
             if (all) return true;
@@ -109,7 +114,9 @@ public class AccessGuard {
         // is limited by SecurityConfig (e.g. the accountant can't change marks or students).
         // The chairperson oversees the school: every class for READING. Every change is already refused
         // for the chairperson by SecurityConfig (results, attendance, students, marks… name their roles).
-        if (roles.contains("ROLE_ADMIN") || roles.contains("ROLE_CLERK") || roles.contains("ROLE_ACCOUNTANT") || roles.contains("ROLE_CHAIRPERSON")) {
+        // A teacher who is also head / deputy / senior teacher (or chairperson) reads every class but edits only their own
+        boolean leaderTeacher = roles.contains("ROLE_TEACHER") && (roles.contains("ROLE_HEAD_TEACHER") || roles.contains("ROLE_SENIOR_TEACHER") || roles.contains("ROLE_CHAIRPERSON"));
+        if (!leaderTeacher && (roles.contains("ROLE_ADMIN") || roles.contains("ROLE_CLERK") || roles.contains("ROLE_ACCOUNTANT") || roles.contains("ROLE_CHAIRPERSON"))) {
             return new Scope(true, Set.of(), Set.of(), Map.of(), Set.of(), Map.of());
         }
         if (!roles.contains("ROLE_TEACHER")) {
@@ -149,7 +156,8 @@ public class AccessGuard {
             if (c.getSubject() == null) coverAll.add(cid);
             else coverSubjects.computeIfAbsent(cid, k -> new HashSet<>()).add(c.getSubject().getSubjectId());
         }
-        return new Scope(false, own, readable, subjectsByClass, coverAll, coverSubjects);
+        Scope scope = new Scope(false, own, readable, subjectsByClass, coverAll, coverSubjects);
+        return leaderTeacher ? scope.readingAll() : scope;
     }
 
     /** The class a student is in (null if the student has no class or doesn't exist). */

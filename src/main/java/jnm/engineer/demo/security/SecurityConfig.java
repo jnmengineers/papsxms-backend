@@ -92,9 +92,11 @@ public class SecurityConfig {
                         // A learner's fee statement: also class teachers (own class only — checked in FinanceController)
                         .requestMatchers(HttpMethod.GET, "/api/finance/students/*/statement").hasAnyRole("ADMIN", "ACCOUNTANT", "CHAIRPERSON", "TEACHER")
                         // School overview (head teacher): read-only summaries
-                        .requestMatchers(HttpMethod.GET, "/api/finance/balances").hasAnyRole("ADMIN", "ACCOUNTANT", "CHAIRPERSON", "HEAD_TEACHER")
+                        .requestMatchers(HttpMethod.GET, "/api/finance/balances").hasAnyRole("ADMIN", "ACCOUNTANT", "CHAIRPERSON")
                         .requestMatchers(HttpMethod.GET, "/api/attendance/school-day/**").hasAnyRole("ADMIN", "TEACHER", "HEAD_TEACHER", "CHAIRPERSON")
-                        .requestMatchers(HttpMethod.GET, "/api/finance/**", "/api/payroll/**", "/api/transport/**").hasAnyRole("ADMIN", "ACCOUNTANT", "CHAIRPERSON")
+                        // Payroll (salaries, payslips, bank file): the treasurer only — viewing and running it
+                        .requestMatchers("/api/payroll", "/api/payroll/**").hasRole("TREASURER")
+                        .requestMatchers(HttpMethod.GET, "/api/finance/**", "/api/transport/**").hasAnyRole("ADMIN", "ACCOUNTANT", "CHAIRPERSON")
                         // Parents / guardians: the office (admin, clerk, bursar/treasurer)
                         .requestMatchers("/api/guardians", "/api/guardians/**").hasAnyRole("ADMIN", "CLERK", "ACCOUNTANT")
                         // SMS account settings, test and log: admin only (sending reminders is under /api/reminders)
@@ -106,20 +108,20 @@ public class SecurityConfig {
                         .requestMatchers("/api/duty/**").hasAnyRole("ADMIN", "HEAD_TEACHER")
                         // Staff attendance: own sign-in for everyone; the register for the office
                         .requestMatchers("/api/staff-attendance/mine", "/api/staff-attendance/mine/**").authenticated()
-                        .requestMatchers(HttpMethod.GET, "/api/staff-attendance/**").hasAnyRole("ADMIN", "HEAD_TEACHER", "CLERK", "CHAIRPERSON")
+                        .requestMatchers(HttpMethod.GET, "/api/staff-attendance/**").hasAnyRole("ADMIN", "HEAD_TEACHER", "CLERK", "CHAIRPERSON", "SENIOR_TEACHER")
                         .requestMatchers("/api/staff-attendance/**").hasAnyRole("ADMIN", "HEAD_TEACHER", "CLERK")
                         // Leave: every staff member manages their OWN leave; the rest is the office (admin), chairperson may read
                         .requestMatchers("/api/leave/mine", "/api/leave/mine/**").authenticated()
                         // Who approves leave: the head teacher (role ticked by the super admin) or an admin
                         .requestMatchers("/api/leave/requests/*/approve", "/api/leave/requests/*/reject").hasAnyRole("ADMIN", "HEAD_TEACHER")
-                        .requestMatchers(HttpMethod.GET, "/api/leave/**").hasAnyRole("ADMIN", "CHAIRPERSON", "HEAD_TEACHER")
+                        .requestMatchers(HttpMethod.GET, "/api/leave/**").hasAnyRole("ADMIN", "CHAIRPERSON", "HEAD_TEACHER", "SENIOR_TEACHER")
                         .requestMatchers("/api/leave/**").hasRole("ADMIN")
                         // Staff register: personal details (ID numbers…) — admin; the chairperson may read
-                        .requestMatchers(HttpMethod.GET, "/api/staff/**").hasAnyRole("ADMIN", "CHAIRPERSON", "HEAD_TEACHER")
+                        .requestMatchers(HttpMethod.GET, "/api/staff/**").hasAnyRole("ADMIN", "CHAIRPERSON", "HEAD_TEACHER", "SENIOR_TEACHER")
                         .requestMatchers("/api/staff/**").hasRole("ADMIN")
                         .requestMatchers("/api/finance/**").hasAnyRole("ADMIN", "ACCOUNTANT")
                         // Payroll: salaries are private — admin and bursar only, reading included
-                        .requestMatchers("/api/payroll/**").hasAnyRole("ADMIN", "ACCOUNTANT")
+
                         .requestMatchers("/api/transport/**").hasAnyRole("ADMIN", "ACCOUNTANT")
                         // Meals & Transport ticking: class teachers (own class, current term — checked in the service)
                         .requestMatchers("/api/class-services/**").hasAnyRole("ADMIN", "ACCOUNTANT", "TEACHER")

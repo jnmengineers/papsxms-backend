@@ -288,6 +288,7 @@ public class FinanceService {
             e.put("type", "PAYMENT");
             e.put("date", p.getPaidOn().toString());
             e.put("description", methodLabel(p.getMethod()) + " " + p.getReference() + (p.isReversed() ? " (REVERSED)" : ""));
+            e.put("receiptNumber", p.getReceiptNumber());
             e.put("debit", null);
             e.put("credit", p.isReversed() ? null : p.getAmount());
             e.put("sortKey", p.getPaidOn() + "|1|" + p.getPaymentId());
