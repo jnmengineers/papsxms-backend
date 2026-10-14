@@ -26,7 +26,9 @@ public class User {
         TREASURER,                           // head of the bursar: everything the bursar can do + approves bills
         CHAIRPERSON,                         // oversees the school: can view everything, change nothing
         SUPER_ADMIN,                         // everything an admin can do + ticks which roles each user has
-        HEAD_TEACHER                         // approves staff leave; sees the staff register and leave (no editing)
+        HEAD_TEACHER,                        // approves staff leave; sees the staff register and leave (no editing)
+        DEPUTY_HEAD,                         // deputy head teacher: everything the head teacher can do
+        SENIOR_TEACHER                       // a teacher who also sees the School Overview
     }
 
     /**
@@ -47,6 +49,8 @@ public class User {
         }
         if (out.contains(Role.SUPER_ADMIN)) out.add(Role.ADMIN);          // a super admin is also an admin
         if (out.contains(Role.TREASURER)) out.add(Role.ACCOUNTANT);       // the treasurer can do the bursar's work
+        if (out.contains(Role.DEPUTY_HEAD)) out.add(Role.HEAD_TEACHER);   // the deputy can do the head teacher's work
+        if (out.contains(Role.SENIOR_TEACHER)) out.add(Role.TEACHER);     // a senior teacher is a teacher
         return out;
     }
 
