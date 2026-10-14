@@ -23,6 +23,7 @@ import java.util.Map;
 public class FinanceController {
 
     private final FinanceService financeService;
+    private final jnm.engineer.demo.security.AccessGuard accessGuard;
 
     private static String who(UserDetails me) { return me != null ? me.getUsername() : null; }
 
@@ -64,6 +65,11 @@ public class FinanceController {
 
     @GetMapping("/students/{studentId}/statement")
     public ResponseEntity<Map<String, Object>> statement(@PathVariable Long studentId) {
+        // Finance staff see every learner; a teacher only learners in a class they are class teacher of
+        boolean financeStaff = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication()
+                .getAuthorities().stream().anyMatch(a -> java.util.Set.of("ROLE_ADMIN", "ROLE_ACCOUNTANT", "ROLE_CHAIRPERSON").contains(a.getAuthority()));
+        if (!financeStaff && !accessGuard.currentScope().isOwnClass(accessGuard.classOfStudent(studentId)))
+            throw jnm.engineer.demo.security.AccessGuard.forbidden("Only the class teacher can see this learner's fees.");
         return ResponseEntity.ok(financeService.statement(studentId));
     }
 

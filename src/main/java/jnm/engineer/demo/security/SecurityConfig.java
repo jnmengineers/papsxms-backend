@@ -68,6 +68,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.HEAD, "/**").permitAll()
                         // Spring's error page: lets 403/404 messages from controllers reach the browser
                         .requestMatchers("/error").permitAll()
+                        // The website itself (pages, scripts, images) when the backend serves it: anything that is NOT /api/.
+                        // All data stays under /api/ and keeps the rules below.
+                        .requestMatchers(request -> "GET".equals(request.getMethod()) && !request.getRequestURI().startsWith("/api/")).permitAll()
                         // School name, motto and logos for the login page
                         .requestMatchers(HttpMethod.GET, "/api/settings/public").permitAll()
 
@@ -86,6 +89,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/finance/expenses/approve", "/api/finance/cheques", "/api/finance/cheques/*/cancel",
                                 "/api/finance/cheques/float", "/api/finance/float/adjust").hasRole("TREASURER")
                         // Chairperson oversees: may READ finance, payroll and transport (never change them)
+                        // A learner's fee statement: also class teachers (own class only — checked in FinanceController)
+                        .requestMatchers(HttpMethod.GET, "/api/finance/students/*/statement").hasAnyRole("ADMIN", "ACCOUNTANT", "CHAIRPERSON", "TEACHER")
                         .requestMatchers(HttpMethod.GET, "/api/finance/**", "/api/payroll/**", "/api/transport/**").hasAnyRole("ADMIN", "ACCOUNTANT", "CHAIRPERSON")
                         // Parents / guardians: the office (admin, clerk, bursar/treasurer)
                         .requestMatchers("/api/guardians", "/api/guardians/**").hasAnyRole("ADMIN", "CLERK", "ACCOUNTANT")
