@@ -73,6 +73,11 @@ public class SecurityConfig {
                         .requestMatchers(request -> "GET".equals(request.getMethod()) && !request.getRequestURI().startsWith("/api/")).permitAll()
                         // School name, motto and logos for the login page
                         .requestMatchers(HttpMethod.GET, "/api/settings/public").permitAll()
+                        // Public website: fee structures and the admission/contact form
+                        .requestMatchers("/api/public/**").permitAll()
+                        // Website enquiries inbox: admin and clerk
+                        .requestMatchers("/api/enquiries", "/api/enquiries/**").hasAnyRole("ADMIN", "CLERK")
+                        .requestMatchers("/api/admissions", "/api/admissions/**").hasAnyRole("ADMIN", "CLERK")
 
                         // ── /api/auth: close the two holes, keep login open ──
                         .requestMatchers("/api/auth/register", "/api/auth/register/**").hasRole("ADMIN")
