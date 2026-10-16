@@ -115,7 +115,7 @@ public class AccessGuard {
         // The chairperson oversees the school: every class for READING. Every change is already refused
         // for the chairperson by SecurityConfig (results, attendance, students, marks… name their roles).
         // A teacher who is also head / deputy / senior teacher (or chairperson) reads every class but edits only their own
-        boolean leaderTeacher = roles.contains("ROLE_TEACHER") && (roles.contains("ROLE_HEAD_TEACHER") || roles.contains("ROLE_SENIOR_TEACHER") || roles.contains("ROLE_CHAIRPERSON"));
+        boolean leaderTeacher = !roles.contains("ROLE_ADMIN") && roles.contains("ROLE_TEACHER") && (roles.contains("ROLE_HEAD_TEACHER") || roles.contains("ROLE_SENIOR_TEACHER") || roles.contains("ROLE_CHAIRPERSON"));
         if (!leaderTeacher && (roles.contains("ROLE_ADMIN") || roles.contains("ROLE_CLERK") || roles.contains("ROLE_ACCOUNTANT") || roles.contains("ROLE_CHAIRPERSON"))) {
             return new Scope(true, Set.of(), Set.of(), Map.of(), Set.of(), Map.of());
         }

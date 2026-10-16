@@ -27,6 +27,10 @@ import java.util.Map;
 public class ResultController {
     private final ResultService resultService;
     private final AccessGuard accessGuard;
+    private final jnm.engineer.demo.repositories.DeletedMarkRepository deletedMarkRepository;
+    private final jnm.engineer.demo.repositories.StudentRepository studentRepository;
+    private final jnm.engineer.demo.repositories.SubjectRepository subjectRepository;
+    private final jnm.engineer.demo.repositories.ExamRepository examRepository;
 
     // ── helpers ──────────────────────────────────────────────────────────────
     private static Long classOf(Result r) {
@@ -131,6 +135,18 @@ public class ResultController {
         if (!accessGuard.currentScope().canWrite(classOf(existing), subjectOf(existing))) {
             throw AccessGuard.forbidden("You can't delete marks for this class or subject.");
         }
+        // Keep a copy: who deleted which mark, and when — the admin can restore it
+        jnm.engineer.demo.models.DeletedMark d = new jnm.engineer.demo.models.DeletedMark();
+        var st = existing.getStudent(); var sub = existing.getSubject(); var ex = existing.getExam();
+        d.setStudentId(st != null ? st.getStudentId() : null); d.setSubjectId(sub != null ? sub.getSubjectId() : null); d.setExamId(ex != null ? ex.getExamId() : null);
+        d.setMarksObtained(existing.getMarksObtained()); d.setMaxMarks(existing.getMaxMarks());
+        d.setLearnerName(st != null ? (st.getFirstName() + " " + st.getLastName()).trim() : null); d.setAdmissionNumber(st != null ? st.getAdmissionNumber() : null);
+        d.setClassName(st != null && st.getSchoolClass() != null ? (st.getSchoolClass().getClassName() + (st.getSchoolClass().getStream() != null ? " " + st.getSchoolClass().getStream() : "")) : null);
+        d.setSubjectName(sub != null ? sub.getSubjectName() : null);
+        d.setExamName(ex != null ? ex.getExamName() + " T" + ex.getTerm() + " " + ex.getAcademicYear() : null);
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        d.setDeletedBy(auth != null ? auth.getName() : null); d.setDeletedAt(java.time.LocalDateTime.now());
+        deletedMarkRepository.save(d);
         resultService.delete(id);
         return ResponseEntity.ok(Map.of("message", "Result deleted successfully"));
     }
@@ -154,5 +170,40 @@ public class ResultController {
             }
         }
         return ResponseEntity.ok(resultService.bulkSave(request));
+    }
+
+    // ── Deleted marks: list and restore (admin only) ──
+    private static void adminOnly() {
+        var a = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (a == null || a.getAuthorities().stream().noneMatch(g -> "ROLE_ADMIN".equals(g.getAuthority())))
+            throw AccessGuard.forbidden("Only the admin can see or restore deleted marks.");
+    }
+
+    @GetMapping("/deleted")
+    public ResponseEntity<List<jnm.engineer.demo.models.DeletedMark>> deleted() {
+        adminOnly();
+        return ResponseEntity.ok(deletedMarkRepository.findTop500ByOrderByDeletedAtDesc());
+    }
+
+    @PostMapping("/deleted/{id}/restore")
+    @org.springframework.transaction.annotation.Transactional
+    public ResponseEntity<Map<String, String>> restore(@PathVariable Long id) {
+        adminOnly();
+        var d = deletedMarkRepository.findById(id).orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_FOUND, "Not found."));
+        if (d.getRestoredAt() != null) throw new org.springframework.web.server.ResponseStatusException(HttpStatus.BAD_REQUEST, "Already restored.");
+        boolean exists = resultService.getByStudentAndExam(d.getStudentId(), d.getExamId()).stream()
+                .anyMatch(r -> r.getSubject() != null && r.getSubject().getSubjectId().equals(d.getSubjectId()));
+        if (exists) throw new org.springframework.web.server.ResponseStatusException(HttpStatus.CONFLICT,
+                "A mark for this learner, subject and exam has been entered since — edit it on the Results page instead.");
+        Result r = new Result();
+        r.setStudent(studentRepository.findById(d.getStudentId()).orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(HttpStatus.BAD_REQUEST, "The learner no longer exists.")));
+        r.setSubject(subjectRepository.findById(d.getSubjectId()).orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(HttpStatus.BAD_REQUEST, "The subject no longer exists.")));
+        r.setExam(examRepository.findById(d.getExamId()).orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(HttpStatus.BAD_REQUEST, "The exam no longer exists.")));
+        r.setMarksObtained(d.getMarksObtained()); r.setMaxMarks(d.getMaxMarks());
+        resultService.create(r);
+        var a = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        d.setRestoredBy(a != null ? a.getName() : null); d.setRestoredAt(java.time.LocalDateTime.now());
+        deletedMarkRepository.save(d);
+        return ResponseEntity.ok(Map.of("message", "Mark restored: " + d.getLearnerName() + ", " + d.getSubjectName() + " = " + d.getMarksObtained()));
     }
 }
