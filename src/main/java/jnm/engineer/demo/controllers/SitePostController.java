@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit;
 @RestController
 @RequiredArgsConstructor
 public class SitePostController {
-    private static final Set<String> KINDS = Set.of("NEWS", "EVENT", "GALLERY", "SLIDE");
+    private static final Set<String> KINDS = Set.of("NEWS", "EVENT", "GALLERY", "SLIDE", "PERSON", "PROGRAM");
     private static final int MAX_IMAGE = 1_500_000;
     private final SitePostRepository repo;
 
@@ -77,7 +77,7 @@ public class SitePostController {
 
     private SitePost apply(SitePost p, PostIn in) {
         String kind = in.kind() == null ? "" : in.kind().toUpperCase();
-        if (!KINDS.contains(kind)) throw bad("Choose News, Event, Gallery or Slider.");
+        if (!KINDS.contains(kind)) throw bad("Choose a type.");
         if (!"GALLERY".equals(kind) && (in.title() == null || in.title().isBlank())) throw bad("Enter a title.");
         p.setKind(kind); p.setTitle(cut(in.title(), 150)); p.setTag(cut(in.tag(), 30)); p.setBody(cut(in.body(), 2000));
         p.setEventDate(in.eventDate()); p.setPublished(in.published() == null || in.published());

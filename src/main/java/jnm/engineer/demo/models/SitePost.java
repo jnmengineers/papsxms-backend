@@ -19,7 +19,7 @@ public class SitePost {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long postId;
-    @Column(length = 10) private String kind;            // NEWS, EVENT, GALLERY, SLIDE (website background slider)
+    @Column(length = 10) private String kind;            // NEWS, EVENT, GALLERY, SLIDE (background), PERSON (management), PROGRAM
     @Column(length = 150) private String title;
     @Column(length = 30) private String tag;
     @Column(length = 2000) private String body;
