@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit;
 @RestController
 @RequiredArgsConstructor
 public class SitePostController {
-    private static final Set<String> KINDS = Set.of("NEWS", "EVENT", "GALLERY", "SLIDE", "PERSON", "PROGRAM", "DOC");
+    private static final Set<String> KINDS = Set.of("NEWS", "EVENT", "GALLERY", "SLIDE", "PERSON", "PROGRAM", "DOC", "JOB");
     private static final int MAX_IMAGE = 1_500_000;
     private final SitePostRepository repo;
 
