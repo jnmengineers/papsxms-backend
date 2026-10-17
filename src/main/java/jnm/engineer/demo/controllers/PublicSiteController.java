@@ -26,9 +26,24 @@ import java.util.*;
 public class PublicSiteController {
     private final FeeStructureRepository feeStructureRepository;
     private final EnquiryRepository enquiryRepository;
+    private final jnm.engineer.demo.repositories.StudentRepository studentRepository;
+    private final jnm.engineer.demo.repositories.StaffMemberRepository staffRepository;
+    private final jnm.engineer.demo.repositories.SchoolClassRepository classRepository;
+
+    /** Live numbers for the website: learners in school, current staff, grade levels. */
+    @GetMapping("/api/public/stats")
+    @Transactional(readOnly = true)
+    public Map<String, Object> stats() {
+        long learners = studentRepository.findAll().stream().filter(s -> s.isInSchool()).count();
+        long staff = staffRepository.findAll().stream().filter(s -> s.getDateLeft() == null).count();
+        long grades = classRepository.findAll().stream().map(c -> c.getGradeLevel() != null ? c.getGradeLevel() : c.getClassName())
+                .filter(Objects::nonNull).distinct().count();
+        return Map.of("learners", learners, "staff", staff, "grades", grades);
+    }
 
     public record EnquiryIn(String kind, String parentName, String phone, String email, String learnerName,
-                            String gradeWanted, String message, String website /* honeypot: must stay empty */) {}
+                            String gradeWanted, String message, String website /* honeypot: must stay empty */,
+                            java.time.LocalDate preferredInterviewDate) {}
     public record StatusIn(String status, String staffNote, java.time.LocalDate interviewDate) {}
 
     /** Latest year's fee structures (per section and term) — what the website shows. */
@@ -66,6 +81,10 @@ public class PublicSiteController {
         e.setParentName(clean(in.parentName(), 100)); e.setPhone(phone); e.setEmail(clean(in.email(), 100));
         e.setLearnerName(clean(in.learnerName(), 100)); e.setGradeWanted(clean(in.gradeWanted(), 40));
         e.setMessage(clean(in.message(), 1500)); e.setStatus("NEW"); e.setCreatedAt(LocalDateTime.now());
+        if ("ADMISSION".equals(e.getKind()) && in.preferredInterviewDate() != null) {
+            if (in.preferredInterviewDate().isBefore(java.time.LocalDate.now())) throw bad("The preferred interview date can't be in the past.");
+            e.setPreferredInterviewDate(in.preferredInterviewDate());
+        }
         enquiryRepository.save(e);
         return Map.of("message", "ADMISSION".equals(e.getKind())
                 ? "Thank you — your application has been received. The school will call you."

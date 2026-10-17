@@ -26,6 +26,7 @@ public class Enquiry {
     @Column(length = 1500) private String message;
     @Column(length = 20) private String status;        // NEW, CONTACTED, INTERVIEW, ADMITTED, NOT_ADMITTED, CLOSED
     private java.time.LocalDate interviewDate;
+    private java.time.LocalDate preferredInterviewDate;   // chosen by the parent on the website
     @Column(length = 20) private String admittedAs;    // admission number given
     @Column(length = 300) private String staffNote;
     private LocalDateTime createdAt;

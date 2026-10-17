@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit;
 @RestController
 @RequiredArgsConstructor
 public class SitePostController {
-    private static final Set<String> KINDS = Set.of("NEWS", "EVENT", "GALLERY", "SLIDE", "PERSON", "PROGRAM");
+    private static final Set<String> KINDS = Set.of("NEWS", "EVENT", "GALLERY", "SLIDE", "PERSON", "PROGRAM", "DOC");
     private static final int MAX_IMAGE = 1_500_000;
     private final SitePostRepository repo;
 
@@ -78,7 +78,9 @@ public class SitePostController {
     private SitePost apply(SitePost p, PostIn in) {
         String kind = in.kind() == null ? "" : in.kind().toUpperCase();
         if (!KINDS.contains(kind)) throw bad("Choose a type.");
-        if (!"GALLERY".equals(kind) && (in.title() == null || in.title().isBlank())) throw bad("Enter a title.");
+        boolean doc = "DOC".equals(kind);
+        if (!"GALLERY".equals(kind) && !doc && (in.title() == null || in.title().isBlank())) throw bad("Enter a title.");
+        if (doc && !Set.of("PRIMARY", "JSS").contains(String.valueOf(in.tag()))) throw bad("Choose Primary or Junior School.");
         p.setKind(kind); p.setTitle(cut(in.title(), 150)); p.setTag(cut(in.tag(), 30)); p.setBody(cut(in.body(), 2000));
         p.setEventDate(in.eventDate()); p.setPublished(in.published() == null || in.published());
         if (Boolean.TRUE.equals(in.removeImage())) { p.setImageData(null); p.setImageType(null); }
@@ -86,12 +88,14 @@ public class SitePostController {
             String b64 = in.imageBase64().contains(",") ? in.imageBase64().substring(in.imageBase64().indexOf(',') + 1) : in.imageBase64();
             byte[] data;
             try { data = Base64.getDecoder().decode(b64); } catch (IllegalArgumentException e) { throw bad("The photo could not be read."); }
-            if (data.length > MAX_IMAGE) throw bad("The photo is too large (max 1.5 MB).");
             String type = in.imageType() == null ? "image/jpeg" : in.imageType();
-            if (!Set.of("image/jpeg", "image/png", "image/webp").contains(type)) throw bad("Use a JPG, PNG or WebP photo.");
+            if (doc) { if (!"application/pdf".equals(type)) throw bad("Upload a PDF file."); if (data.length > 5_000_000) throw bad("The PDF is too large (max 5 MB)."); }
+            else { if (data.length > MAX_IMAGE) throw bad("The photo is too large (max 1.5 MB)."); if (!Set.of("image/jpeg", "image/png", "image/webp").contains(type)) throw bad("Use a JPG, PNG or WebP photo."); }
             p.setImageData(data); p.setImageType(type);
         }
         if (("GALLERY".equals(kind) || "SLIDE".equals(kind)) && !p.isHasImage()) throw bad("This needs a photo.");
+        if (doc && !p.isHasImage()) throw bad("Upload the PDF.");
+        if (doc && (p.getTitle() == null)) p.setTitle("JSS".equals(in.tag()) ? "Junior School fee structure" : "Primary fee structure");
         return p;
     }
 
