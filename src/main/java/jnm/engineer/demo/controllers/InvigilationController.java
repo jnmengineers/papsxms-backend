@@ -28,7 +28,7 @@ public class InvigilationController {
     private final SubjectRepository subjectRepository;
     private final AccessGuard accessGuard;
 
-    public record StartIn(Long examId, Long classId, Long subjectId) {}
+    public record StartIn(Long examId, Long classId, Long subjectId, List<Long> subjectIds) {}
 
     private static boolean admin(UserDetails me) { return me.getAuthorities().stream().anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority())); }
 
@@ -51,22 +51,33 @@ public class InvigilationController {
 
     @PostMapping
     public Map<String, Object> start(@RequestBody StartIn in, @AuthenticationPrincipal UserDetails me) {
-        if (in == null || in.examId() == null || in.classId() == null || in.subjectId() == null) throw bad("Choose the exam, class and subject you marked.");
+        Set<Long> ids = new LinkedHashSet<>();
+        if (in != null && in.subjectIds() != null) in.subjectIds().stream().filter(Objects::nonNull).forEach(ids::add);
+        if (in != null && in.subjectId() != null) ids.add(in.subjectId());
+        if (in == null || in.examId() == null || in.classId() == null || ids.isEmpty()) throw bad("Choose the exam, class and the subject(s) you marked.");
+        if (ids.size() > 15) throw bad("Choose at most 15 subjects.");
         var user = userRepository.findByUsername(me.getUsername()).orElseThrow(() -> bad("Please log in again."));
         var exam = examRepository.findById(in.examId()).orElseThrow(() -> bad("Exam not found."));
         var cls = classRepository.findById(in.classId()).orElseThrow(() -> bad("Class not found."));
-        var sub = subjectRepository.findById(in.subjectId()).orElseThrow(() -> bad("Subject not found."));
-        boolean dup = repo.findByUsernameAndStoppedAtIsNullAndValidUntilGreaterThanEqual(me.getUsername(), LocalDate.now()).stream()
-                .anyMatch(i -> i.getExamId().equals(exam.getExamId()) && i.getClassId().equals(cls.getClassId()) && i.getSubjectId().equals(sub.getSubjectId()));
-        if (dup) throw bad("You are already in invigilation mode for this exam, class and subject.");
-        Invigilation i = new Invigilation();
-        i.setUsername(user.getUsername()); i.setTeacherName(MarkEntryCoverService.displayName(user));
-        i.setExamId(exam.getExamId()); i.setExamName(exam.getExamName() + " T" + exam.getTerm() + " " + exam.getAcademicYear());
-        i.setClassId(cls.getClassId()); i.setClassName(cls.getClassName() + (cls.getStream() != null ? " " + cls.getStream() : ""));
-        i.setSubjectId(sub.getSubjectId()); i.setSubjectName(sub.getSubjectName());
-        i.setValidUntil(LocalDate.now().plusDays(DAYS)); i.setCreatedAt(LocalDateTime.now());
-        repo.save(i);
-        return Map.of("message", "Invigilation mode on: you can fill in empty " + i.getSubjectName() + " marks for " + i.getClassName() + " (" + i.getExamName() + ") until " + i.getValidUntil() + ".");
+        var active = repo.findByUsernameAndStoppedAtIsNullAndValidUntilGreaterThanEqual(me.getUsername(), LocalDate.now());
+        List<String> started = new ArrayList<>();
+        for (Long sid : ids) {
+            var sub = subjectRepository.findById(sid).orElseThrow(() -> bad("Subject not found."));
+            boolean dup = active.stream().anyMatch(i -> i.getExamId().equals(exam.getExamId()) && i.getClassId().equals(cls.getClassId()) && i.getSubjectId().equals(sid));
+            if (dup) continue;   // already on for this subject
+            Invigilation i = new Invigilation();
+            i.setUsername(user.getUsername()); i.setTeacherName(MarkEntryCoverService.displayName(user));
+            i.setExamId(exam.getExamId()); i.setExamName(exam.getExamName() + " T" + exam.getTerm() + " " + exam.getAcademicYear());
+            i.setClassId(cls.getClassId()); i.setClassName(cls.getClassName() + (cls.getStream() != null ? " " + cls.getStream() : ""));
+            i.setSubjectId(sid); i.setSubjectName(sub.getSubjectName());
+            i.setValidUntil(LocalDate.now().plusDays(DAYS)); i.setCreatedAt(LocalDateTime.now());
+            repo.save(i);
+            started.add(sub.getSubjectName());
+        }
+        if (started.isEmpty()) throw bad("You are already in invigilation mode for these subjects.");
+        String cName = cls.getClassName() + (cls.getStream() != null ? " " + cls.getStream() : "");
+        return Map.of("message", "Invigilation mode on for " + cName + " (" + exam.getExamName() + "): " + String.join(", ", started)
+                + ". You can fill in empty marks for these subjects until " + LocalDate.now().plusDays(DAYS) + ".");
     }
 
     @PostMapping("/{id}/stop")
