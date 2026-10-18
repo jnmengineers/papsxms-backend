@@ -30,6 +30,7 @@ public class TeachingAssignmentService {
     private final UserRepository userRepository;
     private final SchoolClassRepository schoolClassRepository;
     private final MarkEntryCoverRepository coverRepository;
+    private final jnm.engineer.demo.repositories.InvigilationRepository invigilationRepository;
     private final TimetableService timetableService;   // lessons follow the allocation
 
     @Transactional(readOnly = true)
@@ -105,6 +106,28 @@ public class TeachingAssignmentService {
                 @SuppressWarnings("unchecked") List<String> names = (List<String>) m.computeIfAbsent("coverSubjectNames", k -> new ArrayList<String>());
                 names.add(c.getSubject().getSubjectName());
             }
+        }
+
+        // Invigilation / marking mode: that subject in that class (that exam only, empty marks only — checked on save)
+        for (var inv : invigilationRepository.findByUsernameAndStoppedAtIsNullAndValidUntilGreaterThanEqual(user.getUsername(), LocalDate.now())) {
+            SchoolClass sc = schoolClassRepository.findById(inv.getClassId()).orElse(null);
+            if (sc == null) continue;
+            Map<String, Object> m = byClass.computeIfAbsent(sc.getClassId(), k -> {
+                Map<String, Object> x = classMap(sc);
+                x.put("classTeacher", false);
+                x.put("subjectIds", new ArrayList<Long>());
+                return x;
+            });
+            if ((Boolean) m.get("classTeacher")) continue;
+            @SuppressWarnings("unchecked") List<Long> ids = (List<Long>) m.get("subjectIds");
+            if (!ids.contains(inv.getSubjectId())) {
+                ids.add(inv.getSubjectId());
+                @SuppressWarnings("unchecked") List<String> names = (List<String>) m.computeIfAbsent("subjectNames", k -> new ArrayList<String>());
+                names.add(inv.getSubjectName());
+            }
+            m.put("invigilation", true);
+            @SuppressWarnings("unchecked") List<String> ex = (List<String>) m.computeIfAbsent("invigilationExams", k -> new ArrayList<String>());
+            ex.add(inv.getExamName() + " — " + inv.getSubjectName());
         }
 
         List<Map<String, Object>> out = new ArrayList<>(byClass.values());

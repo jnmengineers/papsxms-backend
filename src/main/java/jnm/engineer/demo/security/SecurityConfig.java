@@ -141,6 +141,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/**").authenticated()
 
                         // ── changes ──
+                        .requestMatchers("/api/invigilation", "/api/invigilation/**").hasAnyRole("ADMIN", "TEACHER")
                         .requestMatchers("/api/results/**").hasAnyRole("ADMIN", "TEACHER", "CLERK")
                         .requestMatchers("/api/reportCards/**").hasAnyRole("ADMIN", "TEACHER", "CLERK")
                         .requestMatchers("/api/attendance/**").hasAnyRole("ADMIN", "TEACHER")

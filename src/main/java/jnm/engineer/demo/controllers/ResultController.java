@@ -31,6 +31,7 @@ public class ResultController {
     private final jnm.engineer.demo.repositories.StudentRepository studentRepository;
     private final jnm.engineer.demo.repositories.SubjectRepository subjectRepository;
     private final jnm.engineer.demo.repositories.ExamRepository examRepository;
+    private final jnm.engineer.demo.repositories.InvigilationRepository invigilationRepository;
 
     // ── helpers ──────────────────────────────────────────────────────────────
     private static Long classOf(Result r) {
@@ -160,13 +161,24 @@ public class ResultController {
         AccessGuard.Scope scope = accessGuard.currentScope();
         if (!scope.isAll() && request.getResults() != null) {
             Map<Long, Long> classCache = new HashMap<>();
-            int denied = 0;
+            int denied = 0, lockedByOthers = 0;
             for (var entry : request.getResults()) {
                 Long classId = classCache.computeIfAbsent(entry.getStudentId(), accessGuard::classOfStudent);
-                if (!scope.canWrite(classId, entry.getSubjectId())) denied++;
+                if (scope.canWrite(classId, entry.getSubjectId())) continue;
+                // Invigilation mode: this exam, class and subject only — and only marks that are still empty
+                String me = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
+                boolean invigilating = invigilationRepository.findByUsernameAndStoppedAtIsNullAndValidUntilGreaterThanEqual(me, java.time.LocalDate.now()).stream()
+                        .anyMatch(i -> i.getExamId().equals(request.getExamId()) && i.getClassId().equals(classId) && i.getSubjectId().equals(entry.getSubjectId()));
+                if (!invigilating) { denied++; continue; }
+                boolean exists = entry.getResultId() != null || resultService.getByStudentAndExam(entry.getStudentId(), request.getExamId()).stream()
+                        .anyMatch(r -> r.getSubject() != null && r.getSubject().getSubjectId().equals(entry.getSubjectId()));
+                if (exists) lockedByOthers++;
             }
             if (denied > 0) {
-                throw AccessGuard.forbidden(denied + " of these marks are for a class or subject you don't teach. Nothing was saved.");
+                throw AccessGuard.forbidden(denied + " of these marks are for a class, subject or exam you don't teach or invigilate. Nothing was saved.");
+            }
+            if (lockedByOthers > 0) {
+                throw AccessGuard.forbidden(lockedByOthers + " of these marks were already entered. In invigilation mode you can only fill in empty marks — ask the subject or class teacher to change them. Nothing was saved.");
             }
         }
         return ResponseEntity.ok(resultService.bulkSave(request));
