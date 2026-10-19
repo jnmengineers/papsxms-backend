@@ -79,6 +79,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/enquiries", "/api/enquiries/**").hasAnyRole("ADMIN", "CLERK")
                         .requestMatchers("/api/admissions", "/api/admissions/**").hasAnyRole("ADMIN", "CLERK")
                         .requestMatchers("/api/site-posts", "/api/site-posts/**").hasAnyRole("ADMIN", "CLERK")
+                        .requestMatchers(HttpMethod.GET, "/api/feedback", "/api/feedback/**").hasAnyRole("ADMIN", "HEAD_TEACHER", "CHAIRPERSON")
+                        .requestMatchers("/api/feedback", "/api/feedback/**").hasRole("ADMIN")
                         .requestMatchers("/api/job-applications", "/api/job-applications/**").hasAnyRole("ADMIN", "HEAD_TEACHER")
 
                         // ── /api/auth: close the two holes, keep login open ──
