@@ -49,6 +49,7 @@ public class SubjectService {
         existing.setSubjectName(updated.getSubjectName());
         existing.setSubjectCode(updated.getSubjectCode());
         existing.setGradeLevel(updated.getGradeLevel());
+        existing.setCountsInTotals(updated.getCountsInTotals());
         return subjectRepository.save(existing);
     }
 

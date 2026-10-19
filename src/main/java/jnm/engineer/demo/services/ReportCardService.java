@@ -70,10 +70,13 @@ public class ReportCardService {
         }
 
         // Calculate total and average
-        double totalMarks = results.stream()
+        // Subjects set not to count (e.g. Computer) are recorded but left out of the total and average
+        List<Result> counted = results.stream().filter(r -> r.getSubject() == null || r.getSubject().isCounted()).toList();
+        if (counted.isEmpty()) counted = results;
+        double totalMarks = counted.stream()
                 .mapToDouble(Result::getMarksObtained)
                 .sum();
-        double averageMarks = totalMarks / results.size();
+        double averageMarks = totalMarks / counted.size();
 
         // Check if report card already exists — update it if so
         ReportCard reportCard = reportCardRepository

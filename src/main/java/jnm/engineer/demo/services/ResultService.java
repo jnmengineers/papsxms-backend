@@ -209,6 +209,7 @@ public class ResultService {
                 Map<String, Object> subjectData = new java.util.LinkedHashMap<>();
                 subjectData.put("subjectId", subjectId);
                 subjectData.put("subjectName", subjectName);
+                subjectData.put("countsInTotals", r.getSubject().isCounted());
                 subjectData.put("marks", new java.util.LinkedHashMap<String, Object>());
                 subjectMap.put(key, subjectData);
             }
@@ -300,6 +301,7 @@ public class ResultService {
                 Map<String, Object> subjectData = new java.util.LinkedHashMap<>();
                 subjectData.put("subjectId", subjectId);
                 subjectData.put("subjectName", subjectName);
+                subjectData.put("countsInTotals", r.getSubject().isCounted());
                 subjectData.put("marks", new java.util.LinkedHashMap<String, Object>());
                 subjectMap.put(key, subjectData);
             }

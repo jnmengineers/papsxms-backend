@@ -34,4 +34,11 @@ public class Subject {
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "teacher_id")
     private Teacher teacher;
+
+    /** False = recorded and shown, but left out of totals, means and positions (e.g. Computer). Empty = counts. */
+    private Boolean countsInTotals;
+
+    /** True unless this subject is set not to count. */
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    public boolean isCounted() { return !Boolean.FALSE.equals(countsInTotals); }
 }
