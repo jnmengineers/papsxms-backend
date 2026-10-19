@@ -108,27 +108,7 @@ public class TeachingAssignmentService {
             }
         }
 
-        // Invigilation / marking mode: that subject in that class (that exam only, empty marks only — checked on save)
-        for (var inv : invigilationRepository.findByUsernameAndStoppedAtIsNullAndValidUntilGreaterThanEqual(user.getUsername(), LocalDate.now())) {
-            SchoolClass sc = schoolClassRepository.findById(inv.getClassId()).orElse(null);
-            if (sc == null) continue;
-            Map<String, Object> m = byClass.computeIfAbsent(sc.getClassId(), k -> {
-                Map<String, Object> x = classMap(sc);
-                x.put("classTeacher", false);
-                x.put("subjectIds", new ArrayList<Long>());
-                return x;
-            });
-            if ((Boolean) m.get("classTeacher")) continue;
-            @SuppressWarnings("unchecked") List<Long> ids = (List<Long>) m.get("subjectIds");
-            if (!ids.contains(inv.getSubjectId())) {
-                ids.add(inv.getSubjectId());
-                @SuppressWarnings("unchecked") List<String> names = (List<String>) m.computeIfAbsent("subjectNames", k -> new ArrayList<String>());
-                names.add(inv.getSubjectName());
-            }
-            m.put("invigilation", true);
-            @SuppressWarnings("unchecked") List<String> ex = (List<String>) m.computeIfAbsent("invigilationExams", k -> new ArrayList<String>());
-            ex.add(inv.getExamName() + " — " + inv.getSubjectName());
-        }
+        // (Invigilation records are NOT added here: invigilation mode on Mark Entry lists every class itself.)
 
         List<Map<String, Object>> out = new ArrayList<>(byClass.values());
         out.sort(Comparator.comparing((Map<String, Object> m) -> !(Boolean) m.get("classTeacher"))
