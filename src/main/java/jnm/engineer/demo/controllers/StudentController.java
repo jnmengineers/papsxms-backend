@@ -54,12 +54,12 @@ public class StudentController {
 
     // GET /api/students/former — learners who have left
     @GetMapping("/former")
-    public ResponseEntity<List<Map<String, Object>>> former() {
-        List<Map<String, Object>> out = new java.util.ArrayList<>();
+    public ResponseEntity<List<java.util.Map<String, Object>>> former() {
+        List<java.util.Map<String, Object>> out = new java.util.ArrayList<>();
         visible(studentService.getAllStudents()).stream().filter(s -> !s.isInSchool())
                 .sorted(java.util.Comparator.comparing(Student::getDateLeft, java.util.Comparator.nullsLast(java.util.Comparator.reverseOrder())))
                 .forEach(s -> {
-                    Map<String, Object> m = new java.util.LinkedHashMap<>();
+                    java.util.Map<String, Object> m = new java.util.LinkedHashMap<>();
                     m.put("student", s);
                     m.put("balanceNow", financeService.balanceOf(s.getStudentId()));   // follow-up of arrears
                     out.add(m);
@@ -73,9 +73,9 @@ public class StudentController {
         Student s = studentService.getById(id);
         if (!accessGuard.currentScope().canWrite(classOf(s), null)) throw AccessGuard.forbidden("You can only change students in your own classes.");
         String st = in == null || in.status() == null ? "" : in.status().trim().toUpperCase();
-        if (!LEAVE_STATUSES.contains(st)) throw new org.springframework.web.server.ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose Transferred, Disappeared, Left or Graduated.");
+        if (!LEAVE_STATUSES.contains(st)) throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Choose Transferred, Disappeared, Left or Graduated.");
         java.time.LocalDate d = in.dateLeft() != null ? in.dateLeft() : java.time.LocalDate.now();
-        if (d.isAfter(java.time.LocalDate.now())) throw new org.springframework.web.server.ResponseStatusException(HttpStatus.BAD_REQUEST, "The date left can't be in the future.");
+        if (d.isAfter(java.time.LocalDate.now())) throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "The date left can't be in the future.");
         s.setStatus(st);
         s.setDateLeft(d);
         s.setLeftReason(in.reason() == null || in.reason().isBlank() ? null : in.reason().trim());
@@ -110,6 +110,22 @@ public class StudentController {
     @GetMapping("/by-class-name")
     public ResponseEntity<List<Student>> getByClassName(@RequestParam String className) {
         return ResponseEntity.ok(inSchool(visible(studentService.searchByName(className))));
+    }
+
+    // GET /api/students/for-marking/5 — any teacher: just what's needed to enter marks (invigilation mode).
+    // No other details; saving marks is still checked (empty marks only) by ResultController.
+    @GetMapping("/for-marking/{classId}")
+    public ResponseEntity<List<java.util.Map<String, Object>>> forMarking(@PathVariable Long classId) {
+        return ResponseEntity.ok(inSchool(studentService.GetByClass(classId)).stream().map(s -> {
+            java.util.Map<String, Object> m = new java.util.LinkedHashMap<>();
+            m.put("studentId", s.getStudentId());
+            m.put("firstName", s.getFirstName());
+            m.put("lastName", s.getLastName());
+            m.put("admissionNumber", s.getAdmissionNumber());
+            m.put("gender", s.getGender());
+            m.put("schoolClass", java.util.Map.of("classId", classId));
+            return m;
+        }).toList());
     }
 
     // GET /api/students/by-class/5
