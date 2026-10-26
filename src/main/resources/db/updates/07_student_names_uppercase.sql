@@ -7,20 +7,20 @@
 -- New and edited learners are saved in capitals automatically by the app.
 -- ════════════════════════════════════════════════════════════════════════════
 
--- 1. CHECK the table name. This should list `students`. If it shows a different
---    name, replace `students` below with that name before running the rest.
+-- 1. CHECK the table name. This should list `student`. If it shows a different
+--    name, replace `student` below with that name before running the rest.
 SHOW TABLES LIKE '%student%';
 
 -- 2. PREVIEW: learners whose names will change (nothing is changed yet)
 SELECT admission_number, first_name, last_name,
        UPPER(TRIM(first_name)) AS new_first_name, UPPER(TRIM(last_name)) AS new_last_name
-FROM students
+FROM student
 WHERE BINARY first_name <> BINARY UPPER(TRIM(first_name))
    OR BINARY last_name  <> BINARY UPPER(TRIM(last_name));
 
 -- 3. CHANGE them (Workbench's "safe update" mode blocks whole-table updates, so it's
 --    switched off just for this and back on afterwards)
-UPDATE students
+UPDATE student
 SET first_name = UPPER(TRIM(first_name)),
     last_name  = UPPER(TRIM(last_name))
 WHERE BINARY first_name <> BINARY UPPER(TRIM(first_name))
@@ -28,6 +28,6 @@ WHERE BINARY first_name <> BINARY UPPER(TRIM(first_name))
 
 -- 4. CHECK: should show 0
 SELECT COUNT(*) AS names_not_yet_in_capitals
-FROM students
+FROM student
 WHERE BINARY first_name <> BINARY UPPER(first_name)
    OR BINARY last_name  <> BINARY UPPER(last_name);
